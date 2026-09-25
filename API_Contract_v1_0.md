@@ -1,8 +1,10 @@
 # Tabulation System API Specification & Technical Documentation
 
-**Base URL:** `/api/v1` **USE THIS WHEN BACKEND IS READY**
+**Endpoint:** **(https://ccs-tabulation-2026-project.vercel.app)**
 
-**Base MOCK URL:** `/api/v1-mock` **USE THIS DURING DEVELOPMENT OR WHEN BACKEND IS STILL WORKING**
+**Base URL:** `https://ccs-tabulation-2026-project.vercel.app/api/v1` **USE THIS WHEN BACKEND IS READY**
+
+**Base MOCK URL:** `https://ccs-tabulation-2026-project.vercel.app/api/v1-mock` **USE THIS DURING DEVELOPMENT OR WHEN BACKEND IS STILL WORKING**
 
 **Protocol:** REST over HTTP / HTTPS
 
@@ -47,6 +49,20 @@
 ```
 
 
+### Default Credentials (MOCK CREDENTIALS ONLY)
+
+Use these seed credentials built into the mock database:
+
+| User Type | Username | Password | Full Name |
+| --- | --- | --- | --- |
+| **Admin** | `admin` | `adminpassword123` | Admin System |
+| **Judge** | `judge_donde` | `password123` | Nay Donde |
+| **Judge** | `judge_lester` | `password123` | Sir Lester |
+| **Judge** | `judge_daynver` | `password123` | Sir Daynver |
+| **Judge** | `judge_jhunie` | `password123` | Sir Jhunie Jumawan |
+| **Judge** | `judge_noreen` | `password123` | Ma'am Noreen Lagahit |
+
+---
 
 ---
 
@@ -62,6 +78,7 @@
 | **500 Server Error** | `INTERNAL_SERVER_ERROR` | Unhandled backend or database exception. |
 
 ---
+
 
 ## 3. Module Specifications
 
