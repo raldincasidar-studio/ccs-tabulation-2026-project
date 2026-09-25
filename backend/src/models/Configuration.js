@@ -32,16 +32,6 @@ const configurationSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    stats: {
-      totalJudges: {
-        type: Number,
-        default: 0,
-      },
-      totalContestants: {
-        type: Number,
-        default: 0,
-      },
-    },
     liveStatus: {
       type: liveStatusSchema,
       default: {
