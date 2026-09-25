@@ -1,31 +1,40 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: import.meta.env.VITE_BASE_URL || 'https://ccs-tabulation-2026-project.vercel.app/api/v1-mock',
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// Attach token automatically to every request
+// Attach Bearer token to all outgoing requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   return config;
 });
 
-// Unwrap standard contract response & handle 401
+// Unwrap response and handle 401 Unauthorized
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    const payload = error.response?.data?.error;
+    const errorPayload = error.response?.data?.error;
+
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      localStorage.removeItem('expiresAt');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
+
     return Promise.reject({
-      code: payload?.code || 'NETWORK_ERROR',
-      message: payload?.message || error.message,
-      details: payload?.details || [],
+      code: errorPayload?.code || 'REQUEST_FAILED',
+      message: errorPayload?.message || error.message || 'An unexpected error occurred',
+      details: errorPayload?.details || [],
     });
   }
 );

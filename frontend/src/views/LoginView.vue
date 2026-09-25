@@ -27,18 +27,13 @@ async function handleLogin() {
     } else if (user.userType === 'Judge') {
       router.push('/judge');
     } else {
-      router.push('/');
+      router.push('/login');
     }
   } catch (err) {
     errorMessage.value = err.message || 'Login failed. Please check your credentials.';
   } finally {
     isLoading.value = false;
   }
-}
-
-function fillCredentials(user, pass) {
-  username.value = user;
-  password.value = pass;
 }
 </script>
 
@@ -79,7 +74,7 @@ function fillCredentials(user, pass) {
               type="text"
               required
               autocomplete="username"
-              placeholder="Jhon Doe"
+              placeholder="ex: admin"
               class="w-full px-4 py-2.5 sm:py-3 bg-[#0a0f4a]/90 hover:bg-[#0d145e] focus:bg-[#0b1254] border border-[#1b2585] rounded-xl text-white placeholder-[#435299] text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)] transition duration-200 font-sans"
             />
           </div>
@@ -96,7 +91,7 @@ function fillCredentials(user, pass) {
               :type="showPassword ? 'text' : 'password'"
               required
               autocomplete="current-password"
-              placeholder="*********"
+              placeholder="••••••••••••"
               class="w-full pl-4 pr-11 py-2.5 sm:py-3 bg-[#0a0f4a]/90 hover:bg-[#0d145e] focus:bg-[#0b1254] border border-[#1b2585] rounded-xl text-white placeholder-[#435299] text-sm focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)] transition duration-200 tracking-wider font-sans"
             />
             
@@ -133,37 +128,6 @@ function fillCredentials(user, pass) {
           </span>
         </button>
       </form>
-
-      <!-- Testing Shortcuts -->
-       <!-- for testing uncomment anytiem -->
-      <!-- <div class="mt-8 sm:mt-10 pt-4 border-t border-indigo-950/60 w-full flex flex-col items-center">
-        <span class="text-[10px] tracking-wider text-slate-500 uppercase mb-2 font-medium">
-          Quick Fill (Seed Accounts)
-        </span>
-        <div class="flex flex-wrap justify-center gap-2 text-[11px] w-full">
-          <button
-            type="button"
-            @click="fillCredentials('admin', 'adminpassword123')"
-            class="flex-1 sm:flex-none px-3 py-1.5 bg-[#090d3d] hover:bg-[#121966] text-[#7d99d9] hover:text-white rounded-md border border-[#1b2585] active:scale-95 transition cursor-pointer text-center"
-          >
-            Admin
-          </button>
-          <button
-            type="button"
-            @click="fillCredentials('judge_donde', 'password123')"
-            class="flex-1 sm:flex-none px-3 py-1.5 bg-[#090d3d] hover:bg-[#121966] text-[#7d99d9] hover:text-white rounded-md border border-[#1b2585] active:scale-95 transition cursor-pointer text-center whitespace-nowrap"
-          >
-            Nay Donde
-          </button>
-          <button
-            type="button"
-            @click="fillCredentials('judge_lester', 'password123')"
-            class="flex-1 sm:flex-none px-3 py-1.5 bg-[#090d3d] hover:bg-[#121966] text-[#7d99d9] hover:text-white rounded-md border border-[#1b2585] active:scale-95 transition cursor-pointer text-center whitespace-nowrap"
-          >
-            Sir Lester
-          </button>
-        </div>
-      </div> -->
     </div>
   </main>
 </template>
