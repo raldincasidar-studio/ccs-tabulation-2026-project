@@ -1,17 +1,21 @@
 import mongoose from 'mongoose';
 
 export const connectDB = async () => {
+  const mongoUri = process.env.MONGODB_URI;
+
+  if (!mongoUri) {
+    console.warn('MONGODB_URI is not set. Starting in mock mode without MongoDB.');
+    return false;
+  }
+
   try {
-    const mongoUri = process.env.MONGODB_URI;
-
-    if (!mongoUri) {
-      throw new Error('Missing MongoDB connection string. Set MONGODB_URI or MONGO_URI in your .env file.');
-    }
-
-    const conn = await mongoose.connect(mongoUri);
+    const conn = await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000,
+    });
     console.log(`MongoDB Connected: ${conn.connection.host}`);
+    return true;
   } catch (error) {
-    console.error(`Database Connection Error: ${error.message}`);
-    process.exit(1);
+    console.warn(`Database Connection Warning: ${error.message}. Continuing in mock mode.`);
+    return false;
   }
 };

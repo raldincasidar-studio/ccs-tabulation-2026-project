@@ -1,5 +1,6 @@
 import express from 'express';
 import { authenticateToken } from './authRoutes.js';
+import { sendError, sendSuccess } from '../utils/response.js';
 
 const router = express.Router();
 
@@ -27,21 +28,11 @@ const mockConfiguration = {
   }
 };
 
-const makeError = (code, message, details = []) => ({
-  success: false,
-  error: { code, message, details }
-});
-
 router.get('/configuration', authenticateToken, (req, res) => {
   try {
-    return res.status(200).json({
-      success: true,
-      data: mockConfiguration
-    });
+    return sendSuccess(res, mockConfiguration, 'Configuration retrieved successfully', 200);
   } catch (error) {
-    return res.status(500).json(
-      makeError('INTERNAL_SERVER_ERROR', 'Failed to retrieve configuration settings', [])
-    );
+    return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to retrieve configuration settings', []);
   }
 });
 
@@ -49,51 +40,35 @@ router.put('/configuration', authenticateToken, (req, res) => {
   const { eventTitle, eventDescription } = req.body || {};
 
   if (!eventTitle || !String(eventTitle).trim()) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'eventTitle is required and cannot be empty',
-        details: [{ field: 'eventTitle', issue: 'Must be a non-empty string' }]
-      }
-    });
+    return sendError(res, 400, 'VALIDATION_ERROR', 'eventTitle is required and cannot be empty', [
+      { field: 'eventTitle', issue: 'Must be a non-empty string' }
+    ]);
   }
 
   mockConfiguration.eventTitle = eventTitle;
   mockConfiguration.eventDescription = eventDescription || mockConfiguration.eventDescription;
 
-  return res.status(200).json({
-    success: true,
-    message: 'Configuration updated successfully',
-    data: {
-      _id: mockConfiguration._id,
-      eventTitle: mockConfiguration.eventTitle,
-      eventDescription: mockConfiguration.eventDescription
-    }
-  });
+  return sendSuccess(res, {
+    _id: mockConfiguration._id,
+    eventTitle: mockConfiguration.eventTitle,
+    eventDescription: mockConfiguration.eventDescription
+  }, 'Configuration updated successfully', 200);
 });
 
 router.patch('/configuration/live-status', authenticateToken, (req, res) => {
   const { categoryActive, contestantActive } = req.body || {};
 
   if (!categoryActive || !contestantActive) {
-    return res.status(400).json(
-      makeError('VALIDATION_ERROR', 'categoryActive and contestantActive are required', [])
-    );
+    return sendError(res, 400, 'VALIDATION_ERROR', 'categoryActive and contestantActive are required', []);
   }
 
   const categoryExists = categoryActive === '65f8a123b0a9c12345678910';
   const contestantExists = contestantActive === '65f8a123b0a9c12345678920';
 
   if (!categoryExists || !contestantExists) {
-    return res.status(404).json({
-      success: false,
-      error: {
-        code: 'RESOURCE_NOT_FOUND',
-        message: 'Specified active category or contestant does not exist',
-        details: [{ field: 'categoryActive', issue: 'Category ID not found' }]
-      }
-    });
+    return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Specified active category or contestant does not exist', [
+      { field: 'categoryActive', issue: 'Category ID not found' }
+    ]);
   }
 
   mockConfiguration.liveStatus = {
@@ -107,14 +82,10 @@ router.patch('/configuration/live-status', authenticateToken, (req, res) => {
     }
   };
 
-  return res.status(200).json({
-    success: true,
-    message: 'Live status updated successfully',
-    data: {
-      categoryActive,
-      contestantActive
-    }
-  });
+  return sendSuccess(res, {
+    categoryActive,
+    contestantActive
+  }, 'Live status updated successfully', 200);
 });
 
 export default router;

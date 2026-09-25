@@ -1,5 +1,7 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { authenticateToken } from './authRoutes.js';
+import { sendError, sendSuccess } from '../utils/response.js';
 
 const router = express.Router();
 
@@ -26,55 +28,27 @@ const mockJudgeState = [
 
 router.get('/judges', authenticateToken, (req, res) => {
   if (req.user.userType !== 'Admin') {
-    return res.status(403).json({
-      success: false,
-      error: {
-        code: 'FORBIDDEN',
-        message: 'Access denied. Only Admins can view judges list',
-        details: []
-      }
-    });
+    return sendError(res, 403, 'FORBIDDEN', 'Access denied. Only Admins can view judges list');
   }
 
   const sanitizedJudges = mockJudgeState.map(({ password, ...judge }) => judge);
-  return res.status(200).json({ success: true, data: sanitizedJudges });
+  return sendSuccess(res, sanitizedJudges, 'Judges retrieved successfully', 200);
 });
 
 router.post('/judges', authenticateToken, (req, res) => {
   if (req.user.userType !== 'Admin') {
-    return res.status(403).json({
-      success: false,
-      error: {
-        code: 'FORBIDDEN',
-        message: 'Access denied. Only Admins can create judges',
-        details: []
-      }
-    });
+    return sendError(res, 403, 'FORBIDDEN', 'Access denied. Only Admins can create judges');
   }
 
   const { username, password, firstName, lastName, isActive = true } = req.body || {};
 
   if (!username || !password || !firstName || !lastName) {
-    return res.status(400).json({
-      success: false,
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: 'username, password, firstName and lastName are required',
-        details: []
-      }
-    });
+    return sendError(res, 400, 'VALIDATION_ERROR', 'username, password, firstName and lastName are required');
   }
 
   const exists = mockJudgeState.some((judge) => judge.username === username);
   if (exists) {
-    return res.status(409).json({
-      success: false,
-      error: {
-        code: 'DUPLICATE_KEY',
-        message: `Username '${username}' already exists`,
-        details: []
-      }
-    });
+    return sendError(res, 409, 'DUPLICATE_KEY', `Username '${username}' already exists`);
   }
 
   const newJudge = {
@@ -90,35 +64,17 @@ router.post('/judges', authenticateToken, (req, res) => {
   mockJudgeState.push(newJudge);
   const { password: omittedPassword, ...responseJudge } = newJudge;
 
-  return res.status(201).json({
-    success: true,
-    message: 'Judge created successfully',
-    data: responseJudge
-  });
+  return sendSuccess(res, responseJudge, 'Judge created successfully', 201);
 });
 
 router.put('/judges/:id', authenticateToken, (req, res) => {
   if (req.user.userType !== 'Admin') {
-    return res.status(403).json({
-      success: false,
-      error: {
-        code: 'FORBIDDEN',
-        message: 'Access denied. Only Admins can update judges',
-        details: []
-      }
-    });
+    return sendError(res, 403, 'FORBIDDEN', 'Access denied. Only Admins can update judges');
   }
 
   const judge = mockJudgeState.find((item) => item._id === req.params.id);
   if (!judge) {
-    return res.status(404).json({
-      success: false,
-      error: {
-        code: 'RESOURCE_NOT_FOUND',
-        message: `Judge ID '${req.params.id}' not found`,
-        details: []
-      }
-    });
+    return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Judge ID '${req.params.id}' not found`);
   }
 
   const { username, password, firstName, lastName, isActive } = req.body || {};
@@ -129,11 +85,25 @@ router.put('/judges/:id', authenticateToken, (req, res) => {
   if (typeof isActive === 'boolean') judge.isActive = isActive;
 
   const { password: omittedPassword, ...responseJudge } = judge;
-  return res.status(200).json({
-    success: true,
-    message: 'Judge updated successfully',
-    data: responseJudge
-  });
+  return sendSuccess(res, responseJudge, 'Judge updated successfully', 200);
+});
+
+router.delete('/judges/:id', authenticateToken, (req, res) => {
+  if (req.user.userType !== 'Admin') {
+    return sendError(res, 403, 'FORBIDDEN', 'Access denied. Only Admins can delete judges');
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Provided judge ID is not a valid ObjectId');
+  }
+
+  const index = mockJudgeState.findIndex((judge) => judge._id === req.params.id);
+  if (index === -1) {
+    return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Judge ID '${req.params.id}' not found`);
+  }
+
+  mockJudgeState.splice(index, 1);
+  return sendSuccess(res, null, 'Judge deleted successfully', 200);
 });
 
 export default router;

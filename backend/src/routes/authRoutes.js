@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { sendError, sendSuccess } from '../utils/response.js';
 
 const router = express.Router();
 
@@ -58,17 +59,6 @@ const mockUserMap = new Map(mockUsers.map((user) => [user.username, user]));
 const JWT_SECRET = process.env.JWT_SECRET || 'GW4P0_S1_JULY4N';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
-const makeError = (code, message, details = []) => ({
-  success: false,
-  error: { code, message, details }
-});
-
-const makeSuccess = (message, data = {}) => ({
-  success: true,
-  message,
-  data
-});
-
 const signToken = (user) => jwt.sign(
   {
     sub: user._id,
@@ -83,9 +73,7 @@ export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers.authorization || '';
 
   if (!authHeader.startsWith('Bearer ')) {
-    return res.status(401).json(
-      makeError('UNAUTHORIZED', 'Authentication token missing or invalid', [])
-    );
+    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid');
   }
 
   const token = authHeader.replace('Bearer ', '').trim();
@@ -95,17 +83,13 @@ export const authenticateToken = (req, res, next) => {
     const user = mockUserMap.get(decoded.username) || mockUsers.find((item) => item._id === decoded.sub);
 
     if (!user) {
-      return res.status(401).json(
-        makeError('UNAUTHORIZED', 'Authentication token missing or invalid', [])
-      );
+      return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid');
     }
 
     req.user = user;
     return next();
   } catch (error) {
-    return res.status(401).json(
-      makeError('UNAUTHORIZED', 'Authentication token missing or invalid', [])
-    );
+    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid');
   }
 };
 
@@ -113,39 +97,33 @@ router.post('/auth/login', (req, res) => {
   const { username, password } = req.body || {};
 
   if (!username || !password) {
-    return res.status(400).json(
-      makeError('VALIDATION_ERROR', 'Username and password are required', [])
-    );
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Username and password are required');
   }
 
   const user = mockUserMap.get(username);
 
   if (!user || user.password !== password) {
-    return res.status(401).json(
-      makeError('INVALID_CREDENTIALS', 'Invalid username or password', [])
-    );
+    return sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid username or password');
   }
 
   const token = signToken(user);
   const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
 
-  return res.status(200).json(
-    makeSuccess('Login successful', {
-      token,
-      user: {
-        _id: user._id,
-        username: user.username,
-        userType: user.userType,
-        firstName: user.firstName,
-        lastName: user.lastName
-      },
-      expiresAt
-    })
-  );
+  return sendSuccess(res, {
+    token,
+    user: {
+      _id: user._id,
+      username: user.username,
+      userType: user.userType,
+      firstName: user.firstName,
+      lastName: user.lastName
+    },
+    expiresAt
+  }, 'Login successful', 200);
 });
 
 router.post('/auth/logout', authenticateToken, (req, res) => {
-  return res.status(200).json(makeSuccess('Logged out successfully'));
+  return sendSuccess(res, null, 'Logged out successfully', 200);
 });
 
 export default router;
