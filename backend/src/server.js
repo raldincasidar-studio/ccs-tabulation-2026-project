@@ -10,6 +10,8 @@ import configurationRouter from './routes/configurationRoutes.js';
 import judgeRouter from './routes/judgeRoutes.js';
 import userRouter from './routes/userRoutes.js';
 import categoryRouter from './routes/categoryRoutes.js';
+import contestantGroupRouter from './routes/contestantGroupRoutes.js';
+import contestantRouter from './routes/contestantRoutes.js';
 
 dotenv.config();
 
@@ -32,6 +34,10 @@ app.use('/api/v1', judgeRouter);
 app.use('/api/v1-mock', judgeRouter);
 app.use('/api/v1', categoryRouter);
 app.use('/api/v1-mock', categoryRouter);
+app.use('/api/v1', contestantGroupRouter);
+app.use('/api/v1-mock', contestantGroupRouter);
+app.use('/api/v1', contestantRouter);
+app.use('/api/v1-mock', contestantRouter);
 app.use('/api', userRouter);
 
 // Root Endpoint
