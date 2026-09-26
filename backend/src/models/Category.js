@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const rubricSchema = new mongoose.Schema(
   {
@@ -26,7 +26,7 @@ const categorySchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
     },
     weight: {
@@ -44,4 +44,4 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export const Category = mongoose.model('Category', categorySchema);
+export const Category = mongoose.model("Category", categorySchema);

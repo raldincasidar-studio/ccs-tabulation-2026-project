@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const configurationSchema = new mongoose.Schema(
   {
@@ -9,7 +9,7 @@ const configurationSchema = new mongoose.Schema(
     },
     eventDescription: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
     },
     isConfigurationMode: {
@@ -22,19 +22,19 @@ const configurationSchema = new mongoose.Schema(
     },
     liveStatus: {
       categoryActive: {
-        _id: { type: String, default: '' },
-        name: { type: String, default: '' },
+        _id: { type: String, default: "" },
+        name: { type: String, default: "" },
       },
       contestantActive: {
-        _id: { type: String, default: '' },
-        name: { type: String, default: '' },
-        image: { type: String, default: '' },
-        label: { type: String, default: '' },
-        group: { type: String, default: '' },
+        _id: { type: String, default: "" },
+        name: { type: String, default: "" },
+        image: { type: String, default: "" },
+        label: { type: String, default: "" },
+        group: { type: String, default: "" },
       },
     },
   },
   { timestamps: true },
 );
 
-export const Configuration = mongoose.model('Configuration', configurationSchema);
+export const Configuration = mongoose.model("Configuration", configurationSchema);

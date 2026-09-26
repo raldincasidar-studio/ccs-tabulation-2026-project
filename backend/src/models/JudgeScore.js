@@ -1,10 +1,10 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const rubricScoreSchema = new mongoose.Schema(
   {
     rubricId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category',
+      ref: "Category",
       required: true,
     },
     score: {
@@ -20,17 +20,17 @@ const judgeScoreSchema = new mongoose.Schema(
   {
     judgeId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     contestantId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Contestant',
+      ref: "Contestant",
       required: true,
     },
     categoryId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category',
+      ref: "Category",
       required: true,
     },
     rubricsScore: [rubricScoreSchema],
@@ -38,4 +38,4 @@ const judgeScoreSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export const JudgeScore = mongoose.model('JudgeScore', judgeScoreSchema);
+export const JudgeScore = mongoose.model("JudgeScore", judgeScoreSchema);

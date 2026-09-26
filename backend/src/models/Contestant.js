@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const contestantSchema = new mongoose.Schema(
   {
@@ -9,15 +9,15 @@ const contestantSchema = new mongoose.Schema(
     },
     image: {
       type: String,
-      default: '',
+      default: "",
     },
     label: {
       type: String,
-      default: '',
+      default: "",
     },
     group: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'ContestantGroup',
+      ref: "ContestantGroup",
       required: true,
     },
     isActive: {
@@ -28,4 +28,4 @@ const contestantSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export const Contestant = mongoose.model('Contestant', contestantSchema);
+export const Contestant = mongoose.model("Contestant", contestantSchema);

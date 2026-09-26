@@ -7,9 +7,9 @@ const router = express.Router();
 
 const getGroupById = (groupId) => mockContestantGroups.find((group) => group._id === groupId) || null;
 
-const getCategoryById = (categoryId) => mockCategories.find((category) => category._id === categoryId) || null;
+// const getCategoryById = (categoryId) => mockCategories.find((category) => category._id === categoryId) || null;
 
-const getContestantById = (contestantId) => mockContestants.find((contestant) => contestant._id === contestantId) || null;
+// const getContestantById = (contestantId) => mockContestants.find((contestant) => contestant._id === contestantId) || null;
 
 const getJudgeById = (judgeId) => mockJudges.find((judge) => judge._id === judgeId) || null;
 

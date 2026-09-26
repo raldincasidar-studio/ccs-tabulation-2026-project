@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const contestantGroupSchema = new mongoose.Schema(
   {
@@ -11,11 +11,11 @@ const contestantGroupSchema = new mongoose.Schema(
     categoriesIncluded: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Category',
+        ref: "Category",
       },
     ],
   },
   { timestamps: true },
 );
 
-export const ContestantGroup = mongoose.model('ContestantGroup', contestantGroupSchema);
+export const ContestantGroup = mongoose.model("ContestantGroup", contestantGroupSchema);

@@ -1,10 +1,10 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const loginSessionSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
     },
     token: {
@@ -23,4 +23,4 @@ const loginSessionSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export const LoginSession = mongoose.model('LoginSession', loginSessionSchema);
+export const LoginSession = mongoose.model("LoginSession", loginSessionSchema);
