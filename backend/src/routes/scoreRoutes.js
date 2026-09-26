@@ -1,38 +1,46 @@
 import express from 'express';
-import mongoose from 'mongoose';
 import { authenticateToken } from './authRoutes.js';
+import { Category } from '../models/Category.js';
+import { Contestant } from '../models/Contestant.js';
+import { ContestantGroup } from '../models/ContestantGroup.js';
+import { JudgeScore } from '../models/JudgeScore.js';
+import { Configuration } from '../models/Configuration.js';
 import { sendError, sendSuccess } from '../utils/response.js';
-import { mockCategories, mockContestants, mockContestantGroups, mockJudgeScores, mockConfiguration } from '../mock/mockData.js';
 
 const router = express.Router();
 
 const buildValidationDetails = (field, issue) => [{ field, issue }];
 
-const findActiveCategory = () => mockConfiguration.liveStatus?.categoryActive || null;
-const findActiveContestant = () => mockConfiguration.liveStatus?.contestantActive || null;
-
-router.get('/scores/live-sheet', authenticateToken, (req, res) => {
+// ─── 7.1 GET /scores/live-sheet ───
+router.get('/scores/live-sheet', authenticateToken, async (req, res) => {
   try {
-    const activeCategory = findActiveCategory();
-    const activeContestant = findActiveContestant();
+    const config = await Configuration.findOne();
 
-    if (!activeCategory || !activeContestant) {
+    if (!config?.liveStatus?.categoryActive || !config?.liveStatus?.contestantActive) {
       return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'No active category or active contestant set in Live Status', []);
     }
 
-    const category = mockCategories.find((item) => item._id === activeCategory._id);
+    const category = await Category.findById(config.liveStatus.categoryActive);
     if (!category) {
       return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'No active category or active contestant set in Live Status', []);
     }
 
-    const contestant = mockContestants.find((item) => item._id === activeContestant._id) || {
-      ...activeContestant,
-      group: mockContestantGroups.find((group) => group.name === activeContestant.group)?.name || activeContestant.group,
-    };
+    const contestant = await Contestant.findById(config.liveStatus.contestantActive)
+      .populate('group', 'name');
+    if (!contestant) {
+      return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'No active category or active contestant set in Live Status', []);
+    }
 
-    const existingScores = (mockJudgeScores || [])
-      .filter((score) => score.judgeId === req.user?._id && score.categoryId === category._id && score.contestantId === contestant._id)
-      .flatMap((entry) => entry.rubricsScore || []);
+    // Fetch existing scores for this judge + category + contestant
+    const existingScoreDoc = await JudgeScore.findOne({
+      judgeId: req.user._id,
+      categoryId: category._id,
+      contestantId: contestant._id,
+    });
+
+    const existingScores = existingScoreDoc
+      ? existingScoreDoc.rubricsScore.map((item) => ({ rubricsId: item.rubricsId, score: item.score }))
+      : [];
 
     return sendSuccess(
       res,
@@ -41,20 +49,20 @@ router.get('/scores/live-sheet', authenticateToken, (req, res) => {
           _id: category._id,
           name: category.name,
           description: category.description,
-          rubrics: category.rubrics.map((rubric) => ({
-            _id: rubric._id,
-            name: rubric.name,
-            maxPoints: rubric.maxPoints,
+          rubrics: category.rubrics.map((r) => ({
+            _id: r._id,
+            name: r.name,
+            maxPoints: r.maxPoints,
           })),
         }],
         contestant: {
           _id: contestant._id,
           name: contestant.name,
           label: contestant.label,
-          group: contestant.group,
+          group: contestant.group?.name || '',
           image: contestant.image,
         },
-        existingScores: existingScores.map((item) => ({ rubricsId: item.rubricsId, score: item.score })),
+        existingScores,
       },
       'Live sheet retrieved successfully',
       200,
@@ -64,7 +72,8 @@ router.get('/scores/live-sheet', authenticateToken, (req, res) => {
   }
 });
 
-router.post('/scores/submit', authenticateToken, (req, res) => {
+// ─── 7.2 POST /scores/submit ───
+router.post('/scores/submit', authenticateToken, async (req, res) => {
   try {
     const { categoryId, contestantId, rubricsScore = [] } = req.body || {};
 
@@ -72,12 +81,12 @@ router.post('/scores/submit', authenticateToken, (req, res) => {
       return sendError(res, 400, 'VALIDATION_ERROR', 'categoryId and contestantId are required', []);
     }
 
-    const category = mockCategories.find((item) => item._id === categoryId);
+    const category = await Category.findById(categoryId);
     if (!category) {
       return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Category ID '${categoryId}' not found`, []);
     }
 
-    const contestant = mockContestants.find((item) => item._id === contestantId);
+    const contestant = await Contestant.findById(contestantId);
     if (!contestant) {
       return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Contestant ID '${contestantId}' not found`, []);
     }
@@ -86,11 +95,12 @@ router.post('/scores/submit', authenticateToken, (req, res) => {
       return sendError(res, 400, 'VALIDATION_ERROR', 'rubricsScore must contain at least one score entry', []);
     }
 
-    const rubricMap = new Map(category.rubrics.map((rubric) => [rubric._id, rubric]));
+    // Build rubric lookup from the category
+    const rubricMap = new Map(category.rubrics.map((r) => [r._id.toString(), r]));
     const scoreDetails = [];
 
     for (const entry of rubricsScore) {
-      const rubric = rubricMap.get(entry.rubricsId);
+      const rubric = rubricMap.get(String(entry.rubricsId));
       if (!rubric) {
         return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid rubric entry provided', buildValidationDetails('rubricsId', 'Unknown rubric ID'));
       }
@@ -104,26 +114,27 @@ router.post('/scores/submit', authenticateToken, (req, res) => {
       scoreDetails.push({ rubricsId: entry.rubricsId, score: numericScore });
     }
 
-    const existingIndex = mockJudgeScores.findIndex(
-      (item) => item.judgeId === req.user?._id && item.categoryId === categoryId && item.contestantId === contestantId,
+    // Upsert: update if exists, create if not
+    const savedEntry = await JudgeScore.findOneAndUpdate(
+      {
+        judgeId: req.user._id,
+        categoryId,
+        contestantId,
+      },
+      {
+        judgeId: req.user._id,
+        categoryId,
+        contestantId,
+        rubricsScore: scoreDetails,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
-    const savedEntry = {
-      _id: `65f8a123b0a9c123456789${String((mockJudgeScores.length + 90)).padStart(2, '0')}`,
-      judgeId: req.user?._id,
-      categoryId,
-      contestantId,
-      rubricsScore: scoreDetails,
-    };
-
-    if (existingIndex >= 0) {
-      mockJudgeScores[existingIndex] = { ...mockJudgeScores[existingIndex], rubricsScore: scoreDetails };
-      return sendSuccess(res, { ...mockJudgeScores[existingIndex], categoryId, contestantId }, 'Scores saved successfully', 200);
-    }
-
-    mockJudgeScores.push(savedEntry);
-    return sendSuccess(res, { ...savedEntry }, 'Scores saved successfully', 200);
+    return sendSuccess(res, savedEntry, 'Scores saved successfully', 200);
   } catch (error) {
+    if (error.name === 'CastError') {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid ObjectId format', []);
+    }
     return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to save judge scores', []);
   }
 });

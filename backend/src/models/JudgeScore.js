@@ -2,9 +2,8 @@ import mongoose from "mongoose";
 
 const rubricScoreSchema = new mongoose.Schema(
   {
-    rubricId: {
+    rubricsId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Category",
       required: true,
     },
     score: {
@@ -13,7 +12,7 @@ const rubricScoreSchema = new mongoose.Schema(
       min: 0,
     },
   },
-  { _id: true },
+  { _id: false },
 );
 
 const judgeScoreSchema = new mongoose.Schema(
@@ -33,12 +32,6 @@ const judgeScoreSchema = new mongoose.Schema(
       ref: "Contestant",
       required: true,
     },
-    categoryId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Category",
-      required: true,
-    },
-    rubricsScore: [rubricScoreSchema],
     rubricsScore: {
       type: [rubricScoreSchema],
       required: true,

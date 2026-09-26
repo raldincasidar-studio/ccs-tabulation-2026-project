@@ -1,36 +1,16 @@
 import express from 'express';
 import mongoose from 'mongoose';
 import { authenticateToken } from './authRoutes.js';
+import { Contestant } from '../models/Contestant.js';
+import { ContestantGroup } from '../models/ContestantGroup.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 
 const router = express.Router();
 
-const mockContestants = [
-  {
-    _id: '65f8a123b0a9c12345678920',
-    name: 'Jopeta Mari',
-    label: '1st Year (1)',
-    image: 'https://cdn.example.com/photos/contestant1.jpg',
-    group: '65f8a123b0a9c12345678930',
-  },
-];
-
-const mockContestantGroups = [
-  {
-    _id: '65f8a123b0a9c12345678930',
-    name: 'Pageant Male',
-    categoriesIncluded: ['65f8a123b0a9c12345678910'],
-  },
-  {
-    _id: '65f8a123b0a9c12345678931',
-    name: 'Pageant Female',
-    categoriesIncluded: ['65f8a123b0a9c12345678920'],
-  },
-];
-
 const buildValidationDetails = (field, issue) => [{ field, issue }];
 
-router.get('/contestants', authenticateToken, (req, res) => {
+// ─── 6.1 GET /contestants ───
+router.get('/contestants', authenticateToken, async (req, res) => {
   try {
     const { groupId } = req.query || {};
 
@@ -38,39 +18,23 @@ router.get('/contestants', authenticateToken, (req, res) => {
       return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid groupId query parameter', []);
     }
 
-    const filteredContestants = groupId
-      ? mockContestants.filter((contestant) => contestant.group === groupId)
-      : mockContestants;
+    const filter = groupId ? { group: groupId } : {};
+    const contestants = await Contestant.find(filter).populate('group', '_id name');
 
-    const populated = filteredContestants.map((contestant) => {
-      const group = mockContestantGroups.find((item) => item._id === contestant.group);
-      return {
-        ...contestant,
-        group: group
-          ? {
-              _id: group._id,
-              name: group.name,
-            }
-          : contestant.group,
-      };
-    });
-
-    return sendSuccess(res, populated, 'Contestants retrieved successfully', 200);
+    return sendSuccess(res, contestants, 'Contestants retrieved successfully', 200);
   } catch (error) {
     return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to fetch contestants list', []);
   }
 });
 
-router.post('/contestants', authenticateToken, (req, res) => {
+// ─── 6.2 POST /contestants ───
+router.post('/contestants', authenticateToken, async (req, res) => {
   try {
     const { name, label, image, group } = req.body || {};
 
     if (!name || !String(name).trim() || !label || !String(label).trim() || !group || !String(group).trim()) {
       return sendError(
-        res,
-        400,
-        'VALIDATION_ERROR',
-        'Missing required fields',
+        res, 400, 'VALIDATION_ERROR', 'Missing required fields',
         [
           { field: 'name', issue: 'Contestant name is required' },
           { field: 'group', issue: 'Target contestant group is required' },
@@ -82,24 +46,29 @@ router.post('/contestants', authenticateToken, (req, res) => {
       return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid group reference', buildValidationDetails('group', 'Target contestant group is required'));
     }
 
-    const newContestant = {
-      _id: `65f8a123b0a9c123456789${String(mockContestants.length + 20).padStart(2, '0')}`,
+    // Verify group exists
+    const groupExists = await ContestantGroup.findById(group);
+    if (!groupExists) {
+      return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Contestant group not found', buildValidationDetails('group', 'Group ID does not exist'));
+    }
+
+    const newContestant = await Contestant.create({
       name: String(name).trim(),
       label: String(label).trim(),
       image: image || '',
-      group: String(group).trim(),
-    };
+      group,
+    });
 
-    mockContestants.push(newContestant);
     return sendSuccess(res, newContestant, 'Contestant created successfully', 201);
   } catch (error) {
     return sendError(res, 400, 'VALIDATION_ERROR', error.message || 'Failed to create contestant', []);
   }
 });
 
-router.put('/contestants/:id', authenticateToken, (req, res) => {
+// ─── 6.3 PUT /contestants/:id ───
+router.put('/contestants/:id', authenticateToken, async (req, res) => {
   try {
-    const contestant = mockContestants.find((item) => item._id === req.params.id);
+    const contestant = await Contestant.findById(req.params.id);
     if (!contestant) {
       return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Contestant ID '${req.params.id}' not found`, []);
     }
@@ -117,24 +86,31 @@ router.put('/contestants/:id', authenticateToken, (req, res) => {
     if (name !== undefined) contestant.name = String(name).trim();
     if (label !== undefined) contestant.label = String(label).trim();
     if (image !== undefined) contestant.image = String(image).trim();
-    if (group !== undefined) contestant.group = String(group).trim();
+    if (group !== undefined) contestant.group = group;
 
+    await contestant.save();
     return sendSuccess(res, contestant, 'Contestant updated successfully', 200);
   } catch (error) {
+    if (error.name === 'CastError') {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid ObjectId format', []);
+    }
     return sendError(res, 400, 'VALIDATION_ERROR', error.message || 'Failed to update contestant', []);
   }
 });
 
-router.delete('/contestants/:id', authenticateToken, (req, res) => {
+// ─── 6.4 DELETE /contestants/:id ───
+router.delete('/contestants/:id', authenticateToken, async (req, res) => {
   try {
-    const index = mockContestants.findIndex((contestant) => contestant._id === req.params.id);
-    if (index === -1) {
+    const contestant = await Contestant.findByIdAndDelete(req.params.id);
+    if (!contestant) {
       return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Contestant not found', []);
     }
 
-    mockContestants.splice(index, 1);
     return sendSuccess(res, null, 'Contestant deleted successfully', 200);
   } catch (error) {
+    if (error.name === 'CastError') {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid ObjectId format', []);
+    }
     return sendError(res, 400, 'VALIDATION_ERROR', error.message || 'Failed to delete contestant', []);
   }
 });

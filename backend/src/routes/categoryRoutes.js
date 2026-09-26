@@ -1,62 +1,25 @@
 import express from 'express';
 import { authenticateToken } from './authRoutes.js';
+import { Category } from '../models/Category.js';
+import { ContestantGroup } from '../models/ContestantGroup.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 
 const router = express.Router();
 
-const mockCategories = [
-  {
-    _id: '65f8a123b0a9c12345678910',
-    name: 'Playsuit',
-    description: 'Evaluates physique, poise, and presentation in swimwear.',
-    weight: 10,
-    isActive: true,
-    rubrics: [
-      { _id: '65f8a123b0a9c12345678911', name: 'Fitness & Form', maxPoints: 40 },
-      { _id: '65f8a123b0a9c12345678912', name: 'Stage Presence', maxPoints: 40 },
-      { _id: '65f8a123b0a9c12345678913', name: 'Poise & Bearing', maxPoints: 20 },
-    ],
-  },
-  {
-    _id: '65f8a123b0a9c12345678920',
-    name: 'Production Number',
-    description: 'Measures energy, choreography, and overall performance quality.',
-    weight: 15,
-    isActive: true,
-    rubrics: [
-      { _id: '65f8a123b0a9c12345678921', name: 'Choreography', maxPoints: 35 },
-      { _id: '65f8a123b0a9c12345678922', name: 'Confidence', maxPoints: 35 },
-      { _id: '65f8a123b0a9c12345678923', name: 'Stage Impact', maxPoints: 30 },
-    ],
-  },
-];
-
-const mockContestantGroups = [
-  {
-    _id: '70f8a123b0a9c12345678901',
-    name: 'Pageant Male',
-    categoriesIncluded: ['65f8a123b0a9c12345678910'],
-  },
-  {
-    _id: '70f8a123b0a9c12345678902',
-    name: 'Pageant Female',
-    categoriesIncluded: ['65f8a123b0a9c12345678920'],
-  },
-];
-
-const createRubricId = (index) => `65f8a123b0a9c123456789${String(index).padStart(2, '0')}`;
-
 const buildValidationDetails = (field, issue) => [{ field, issue }];
 
-router.get('/categories', authenticateToken, (req, res) => {
+// ─── 4.1 GET /categories ───
+router.get('/categories', authenticateToken, async (req, res) => {
   try {
-    return sendSuccess(res, mockCategories, 'Categories retrieved successfully', 200);
+    const categories = await Category.find();
+    return sendSuccess(res, categories, 'Categories retrieved successfully', 200);
   } catch (error) {
     return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to fetch categories list', []);
   }
 });
 
-router.post('/categories', authenticateToken, (req, res) => {
+// ─── 4.2 POST /categories ───
+router.post('/categories', authenticateToken, async (req, res) => {
   try {
     const { name, description = '', weight, isActive = true, rubrics = [] } = req.body || {};
 
@@ -66,9 +29,7 @@ router.post('/categories', authenticateToken, (req, res) => {
 
     if (weight === undefined || weight === null || Number(weight) < 0 || Number(weight) > 100) {
       return sendError(
-        res,
-        400,
-        'VALIDATION_ERROR',
+        res, 400, 'VALIDATION_ERROR',
         'Category weight must be between 0 and 100',
         buildValidationDetails('weight', `Value ${weight} exceeds maximum limit of 100`),
       );
@@ -78,61 +39,51 @@ router.post('/categories', authenticateToken, (req, res) => {
       return sendError(res, 400, 'VALIDATION_ERROR', 'Rubrics must be an array', buildValidationDetails('rubrics', 'Expected an array of rubric entries'));
     }
 
-    const invalidRubric = rubrics.find((rubric) => !rubric || !rubric.name || Number(rubric.maxPoints) <= 0);
+    const invalidRubric = rubrics.find((r) => !r || !r.name || Number(r.maxPoints) <= 0);
     if (invalidRubric) {
       return sendError(
-        res,
-        400,
-        'VALIDATION_ERROR',
+        res, 400, 'VALIDATION_ERROR',
         'Each rubric must include a valid name and maxPoints greater than 0',
         buildValidationDetails('rubrics', 'At least one rubric is invalid'),
       );
     }
 
-    const freshRubrics = rubrics.map((rubric, index) => ({
-      _id: createRubricId(100 + index + 1),
-      name: rubric.name,
-      maxPoints: Number(rubric.maxPoints),
-    }));
-
-    const newCategory = {
-      _id: `65f8a123b0a9c123456789${String(mockCategories.length + 10).padStart(2, '0')}`,
+    const newCategory = await Category.create({
       name: String(name).trim(),
       description: String(description).trim(),
       weight: Number(weight),
       isActive: Boolean(isActive),
-      rubrics: freshRubrics,
-    };
+      rubrics: rubrics.map((r) => ({ name: r.name, maxPoints: Number(r.maxPoints) })),
+    });
 
-    mockCategories.push(newCategory);
     return sendSuccess(res, newCategory, 'Category created successfully', 201);
   } catch (error) {
+    if (error.code === 11000) {
+      return sendError(res, 409, 'DUPLICATE_KEY', 'Category name already exists', []);
+    }
     return sendError(res, 400, 'VALIDATION_ERROR', error.message || 'Failed to create category', []);
   }
 });
 
-router.put('/categories/:id', authenticateToken, (req, res) => {
+// ─── 4.3 PUT /categories/:id ───
+router.put('/categories/:id', authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    const category = mockCategories.find((item) => item._id === id);
-
+    const category = await Category.findById(req.params.id);
     if (!category) {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Category ID '${id}' not found`, []);
+      return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Category ID '${req.params.id}' not found`, []);
     }
 
     const { name, description, weight, isActive, rubrics } = req.body || {};
 
     if (weight !== undefined && (Number(weight) < 0 || Number(weight) > 100)) {
       return sendError(
-        res,
-        400,
-        'VALIDATION_ERROR',
+        res, 400, 'VALIDATION_ERROR',
         'Category weight must be between 0 and 100',
         buildValidationDetails('weight', `Value ${weight} exceeds maximum limit of 100`),
       );
     }
 
-    if (name !== undefined && (!String(name).trim())) {
+    if (name !== undefined && !String(name).trim()) {
       return sendError(res, 400, 'VALIDATION_ERROR', 'Category name cannot be empty', buildValidationDetails('name', 'Name cannot be empty'));
     }
 
@@ -141,12 +92,10 @@ router.put('/categories/:id', authenticateToken, (req, res) => {
     }
 
     if (rubrics !== undefined) {
-      const invalidRubric = rubrics.find((rubric) => !rubric || !rubric.name || Number(rubric.maxPoints) <= 0);
+      const invalidRubric = rubrics.find((r) => !r || !r.name || Number(r.maxPoints) <= 0);
       if (invalidRubric) {
         return sendError(
-          res,
-          400,
-          'VALIDATION_ERROR',
+          res, 400, 'VALIDATION_ERROR',
           'Each rubric must include a valid name and maxPoints greater than 0',
           buildValidationDetails('rubrics', 'At least one rubric is invalid'),
         );
@@ -158,42 +107,44 @@ router.put('/categories/:id', authenticateToken, (req, res) => {
     if (weight !== undefined) category.weight = Number(weight);
     if (isActive !== undefined) category.isActive = Boolean(isActive);
     if (rubrics !== undefined) {
-      category.rubrics = rubrics.map((rubric, index) => ({
-        _id: rubric._id || createRubricId(200 + index + 1),
-        name: rubric.name,
-        maxPoints: Number(rubric.maxPoints),
+      category.rubrics = rubrics.map((r) => ({
+        _id: r._id || undefined, // preserve existing IDs, let Mongoose generate new ones
+        name: r.name,
+        maxPoints: Number(r.maxPoints),
       }));
     }
 
+    await category.save();
     return sendSuccess(res, category, 'Category updated successfully', 200);
   } catch (error) {
+    if (error.name === 'CastError') {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid ObjectId format', []);
+    }
     return sendError(res, 400, 'VALIDATION_ERROR', error.message || 'Failed to update category', []);
   }
 });
 
-router.delete('/categories/:id', authenticateToken, (req, res) => {
+// ─── 4.4 DELETE /categories/:id ───
+router.delete('/categories/:id', authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    const linkedToGroup = mockContestantGroups.some((group) => group.categoriesIncluded.includes(id));
+    const linkedToGroup = await ContestantGroup.findOne({
+      categoriesIncluded: req.params.id,
+    });
 
     if (linkedToGroup) {
-      return sendError(
-        res,
-        400,
-        'VALIDATION_ERROR',
-        'Cannot delete category linked to active contestant groups',
-        [],
-      );
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Cannot delete category linked to active contestant groups', []);
     }
 
-    const index = mockCategories.findIndex((item) => item._id === id);
-    if (index === -1) {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Category ID '${id}' not found`, []);
+    const category = await Category.findByIdAndDelete(req.params.id);
+    if (!category) {
+      return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Category ID '${req.params.id}' not found`, []);
     }
 
-    mockCategories.splice(index, 1);
     return sendSuccess(res, null, 'Category deleted successfully', 200);
   } catch (error) {
+    if (error.name === 'CastError') {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Invalid ObjectId format', []);
+    }
     return sendError(res, 400, 'VALIDATION_ERROR', error.message || 'Failed to delete category', []);
   }
 });
