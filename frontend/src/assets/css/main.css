@@ -1,1 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Monoton&display=swap');
 @import "tailwindcss";
+
+
+/* --- POPPINS --- */
+@font-face {
+  font-family: 'Poppins';
+  src: url('../poppins/Poppins-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('../poppins/Poppins-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('../poppins/Poppins-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+/* --- CROPARO --- */
+@font-face {
+  font-family: 'Croparo';
+  src: url('../croparo/croparo.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* --- TAILWIND V4 THEME CONFIG --- */
+@theme {
+  --font-sans: 'Poppins', system-ui, -apple-system, sans-serif;
+  --font-croparo: 'Croparo', sans-serif;
+  --font-neon: 'Monoton', cursive; /* <-- Multi-line font */
+}
+
+/* Multi-line Neon Glow matching 2026 Tabulation */
+.neon-multiline {
+  font-family: 'Monoton', cursive;
+  color: #38bdf8;
+  letter-spacing: 0.15em;
+  text-shadow: 
+    0 0 2px #38bdf8,
+    0 0 10px rgba(56, 189, 248, 0.7),
+    0 0 20px rgba(168, 85, 247, 0.5);
+}
