@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { User } from '../models/User.js';
 import { LoginSession } from '../models/LoginSession.js';
 import { sendError, sendSuccess } from '../utils/response.js';
@@ -74,7 +75,8 @@ router.post('/auth/login', async (req, res) => {
 
     const user = await User.findOne({ username });
 
-    if (!user || user.password !== password) {
+    const passwordMatch = user ? await bcrypt.compare(password, user.password) : false;
+    if (!user || !passwordMatch) {
       return sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid username or password', []);
     }
 

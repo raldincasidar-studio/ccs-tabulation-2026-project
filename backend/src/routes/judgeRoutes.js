@@ -1,4 +1,5 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { authenticateToken } from './authRoutes.js';
 import { User } from '../models/User.js';
 import { sendError, sendSuccess } from '../utils/response.js';
@@ -37,9 +38,11 @@ router.post('/judges', authenticateToken, async (req, res) => {
       return sendError(res, 409, 'DUPLICATE_KEY', `Username '${username}' already exists`, []);
     }
 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const newJudge = await User.create({
       username,
-      password,
+      password: hashedPassword,
       firstName,
       lastName,
       userType: 'Judge',
@@ -71,7 +74,7 @@ router.put('/judges/:id', authenticateToken, async (req, res) => {
     const { username, password, firstName, lastName, isActive } = req.body || {};
 
     if (username) judge.username = username;
-    if (password) judge.password = password;
+    if (password) judge.password = await bcrypt.hash(password, 10);
     if (firstName) judge.firstName = firstName;
     if (lastName) judge.lastName = lastName;
     if (typeof isActive === 'boolean') judge.isActive = isActive;

@@ -1,4 +1,5 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import { authenticateToken } from './authRoutes.js';
 import { User } from '../models/User.js';
 import { sendError, sendSuccess } from '../utils/response.js';
@@ -18,7 +19,11 @@ router.get('/users', authenticateToken, async (req, res) => {
 // ─── POST /users ───
 router.post('/users', authenticateToken, async (req, res) => {
   try {
-    const user = await User.create(req.body);
+    const body = { ...req.body };
+    if (body.password) {
+      body.password = await bcrypt.hash(body.password, 10);
+    }
+    const user = await User.create(body);
     const { password: _, ...userData } = user.toObject();
     return sendSuccess(res, userData, 'User created successfully', 201);
   } catch (error) {
