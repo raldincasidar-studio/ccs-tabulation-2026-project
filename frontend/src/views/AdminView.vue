@@ -1151,19 +1151,25 @@ function handleLogout() {
 }
 
 .main-content {
-  margin-left: var(--sidebar-width, 180px);
+  display: flex;
+  justify-content: center;
   min-height: calc(100vh - 24px);
-  padding: 16px 28px 52px 7%;
+  margin-left: var(--sidebar-width, 180px);
+  padding: 24px 32px 42px;
   transition: margin-left 0.25s ease;
 }
 
 .dashboard-content {
-  width: min(94%, 1050px);
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .page-header {
   position: relative;
   display: flex;
+  width: 100%;
   min-height: 102px;
   align-items: center;
   overflow: hidden;
@@ -1209,7 +1215,7 @@ function handleLogout() {
 
 .system-status {
   display: flex;
-  width: 96%;
+  width: 100%;
   min-height: 34px;
   align-items: center;
   justify-content: space-between;
@@ -1220,7 +1226,7 @@ function handleLogout() {
   border-radius: 7px;
   background: #10146d;
   color: #e8ebff;
-  font-size: 12px;
+  font-size: 15px;
 }
 
 .system-status strong {
@@ -1252,9 +1258,9 @@ function handleLogout() {
 
 .statistics {
   display: grid;
-  width: 96%;
+  width: 100%;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  gap: 24px;
   margin-top: 12px;
 }
 
@@ -1294,16 +1300,16 @@ function handleLogout() {
 .stat-card span {
   color: #c7cbea;
   font-family: 'Croparo', sans-serif;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 400;
 }
 
 .dashboard-lower {
   display: grid;
-  width: min(100%, 760px);
-  grid-template-columns: clamp(150px, 19vw, 190px) 280px;
+  grid-template-columns: minmax(240px, 1fr) minmax(500px, 2fr);
   align-items: start;
-  gap: clamp(90px, 12vw, 110px);
+  gap: 56px;
+  width: 100%;
   margin-top: 31px;
 }
 
@@ -1311,20 +1317,21 @@ function handleLogout() {
   margin: 0 0 10px;
   color: #58639c;
   font-family: 'Croparo', sans-serif;
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 400;
   line-height: 1.2;
   text-transform: uppercase;
 }
 
 .quick-actions {
+  width: 100%;
   padding-left: 3px;
 }
 
 .quick-actions button {
   display: block;
-  width: calc(clamp(105px, 19vw, 150px) - 1px);
-  min-height: 26px;
+  width: 100%;
+  min-height: 42px;
   margin: 0 0 6px;
   padding: 0 11px;
   border: 1px solid #20247f;
@@ -1334,7 +1341,7 @@ function handleLogout() {
   color: #f1f2ff;
   cursor: pointer;
   font: inherit;
-  font-size: 9px;
+  font-size: 15px;
   text-align: left;
 }
 
@@ -1343,7 +1350,7 @@ function handleLogout() {
 }
 
 .live-scores {
-  width: 228px;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
 }
@@ -1355,7 +1362,7 @@ function handleLogout() {
   margin: 0 0 13px;
   color: #5b6597;
   font-family: 'Croparo', sans-serif;
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 400;
   line-height: 1;
 }
@@ -1378,7 +1385,7 @@ function handleLogout() {
   margin: 0 0 5px;
   color: #58608b;
   font-family: 'Croparo', sans-serif;
-  font-size: 8px;
+  font-size: 16px;
   font-weight: 400;
   line-height: 1;
 }
@@ -1438,10 +1445,10 @@ function handleLogout() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
   color: #34416b;
-  font-size: 8px;
-  line-height: 1.2;
+  font-size: 15px;
+  line-height: 1.4;
 }
 
 .contestant-line span {
@@ -1454,7 +1461,7 @@ function handleLogout() {
 .contestant-line strong {
   flex: 0 0 auto;
   color: #10245f;
-  font-size: 8px;
+  font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
 }
