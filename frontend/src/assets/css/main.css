@@ -26,8 +26,9 @@
 @font-face {
   font-family: 'Croparo';
   src: url('../croparo/croparo.otf') format('opentype');
-  font-weight: normal;
+  font-weight: 400 700;
   font-style: normal;
+  font-display: swap;
 }
 
 /* --- TAILWIND V4 THEME CONFIG --- */
