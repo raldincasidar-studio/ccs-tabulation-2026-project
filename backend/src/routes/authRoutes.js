@@ -9,6 +9,15 @@ const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'PW3D3_N4NG_M4NG4W4T';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
+// Parse JWT_EXPIRES_IN (e.g. '8h') into milliseconds for session expiresAt
+const parseExpiry = (str) => {
+  const match = String(str).match(/^(\d+)([smhd])$/);
+  if (!match) return 8 * 60 * 60 * 1000;
+  const [, val, unit] = match;
+  const units = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+  return Number(val) * (units[unit] || 3600000);
+};
+
 const signToken = (user) =>
   jwt.sign(
     {
@@ -70,11 +79,11 @@ router.post('/auth/login', async (req, res) => {
     }
 
     if (!user.isActive) {
-      return sendError(res, 401, 'INVALID_CREDENTIALS', 'Account is deactivated', []);
+      return sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid username or password', []);
     }
 
     const token = signToken(user);
-    const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + parseExpiry(JWT_EXPIRES_IN));
 
     // Persist session in DB
     await LoginSession.create({

@@ -137,20 +137,37 @@ router.get('/reports/paper/final-ranking-sheet', authenticateToken, async (req, 
     }
 
     const contestants = await Contestant.find({ group: group._id });
+    const categories = await Category.find();
 
     const contestantScores = await Promise.all(
       contestants.map(async (contestant) => {
-        const scores = await JudgeScore.find({ contestantId: contestant._id });
-        const finalScore = scores.reduce((sum, entry) => {
-          const total = (entry.rubricsScore || []).reduce((acc, item) => acc + Number(item.score || 0), 0);
-          return sum + total;
-        }, 0);
+        let finalScore = 0;
+
+        for (const category of categories) {
+          const judgeEntries = await JudgeScore.find({
+            categoryId: category._id,
+            contestantId: contestant._id,
+          });
+
+          if (!judgeEntries.length) continue;
+
+          const rawScore =
+            judgeEntries.reduce((sum, entry) => {
+              const rubricTotal = (entry.rubricsScore || []).reduce(
+                (total, item) => total + Number(item.score || 0),
+                0,
+              );
+              return sum + rubricTotal;
+            }, 0) / judgeEntries.length;
+
+          finalScore += (rawScore * category.weight) / 100;
+        }
 
         return {
           rank: 1,
           nameAndLabel: `${contestant.label} - ${contestant.name}`,
           group: group.name,
-          final_candidate_score: finalScore,
+          final_candidate_score: Number(finalScore.toFixed(1)),
         };
       }),
     );
@@ -236,7 +253,7 @@ router.get('/reports/paper/judge-scoresheet/:judgeId', authenticateToken, async 
         header: {
           institution: 'Jose Rizal Memorial State University',
           college: 'College of Computing Studies',
-          title: 'MR & MS CCS 2026 Judge 1 Scoresheet',
+          title: `MR & MS CCS 2026 ${judge.firstName} ${judge.lastName} Scoresheet`,
         },
         judgeName: `${judge.firstName} ${judge.lastName}`,
         contestants: ranked,

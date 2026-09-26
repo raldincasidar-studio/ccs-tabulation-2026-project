@@ -2,7 +2,7 @@ import express from 'express';
 import { authenticateToken } from './authRoutes.js';
 import { Category } from '../models/Category.js';
 import { Contestant } from '../models/Contestant.js';
-import { ContestantGroup } from '../models/ContestantGroup.js';
+
 import { JudgeScore } from '../models/JudgeScore.js';
 import { Configuration } from '../models/Configuration.js';
 import { sendError, sendSuccess } from '../utils/response.js';
