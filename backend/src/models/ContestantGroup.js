@@ -18,4 +18,7 @@ const contestantGroupSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export const ContestantGroup = mongoose.model("ContestantGroup", contestantGroupSchema);
+export const ContestantGroup = mongoose.model(
+  "ContestantGroup",
+  contestantGroupSchema,
+);

@@ -7,11 +7,12 @@ const contestantSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    image: {
-      type: String,
-      default: "",
-    },
     label: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    image: {
       type: String,
       default: "",
     },
