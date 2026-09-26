@@ -21,6 +21,10 @@ const contestantSchema = new mongoose.Schema(
       ref: "ContestantGroup",
       required: true,
     },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true },
 );

@@ -2,21 +2,18 @@ import mongoose from "mongoose";
 
 const rubricScoreSchema = new mongoose.Schema(
   {
-    rubricsId: {
+    rubricId: {
       type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
       required: true,
     },
     score: {
       type: Number,
-      required: true,
+      default: 0,
       min: 0,
-      validate: {
-        validator: Number.isInteger,
-        message: "Score must be an integer",
-      },
     },
   },
-  { _id: false },
+  { _id: true },
 );
 
 const judgeScoreSchema = new mongoose.Schema(
@@ -36,6 +33,12 @@ const judgeScoreSchema = new mongoose.Schema(
       ref: "Contestant",
       required: true,
     },
+    categoryId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Category",
+      required: true,
+    },
+    rubricsScore: [rubricScoreSchema],
     rubricsScore: {
       type: [rubricScoreSchema],
       required: true,
