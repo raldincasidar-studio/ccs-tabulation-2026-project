@@ -1,4 +1,5 @@
 <script setup>
+import { LogOut } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
@@ -16,9 +17,10 @@ function handleLogout() {
       <h1 class="text-2xl font-bold text-white">Judge Scoring Sheet</h1>
       <button 
         @click="handleLogout"
-        class="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-800 rounded-lg text-sm transition"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-800 rounded-lg text-sm transition"
       >
-        Sign Out
+        <LogOut :size="16" />
+        <span>Sign Out</span>
       </button>
     </div>
     <p class="text-slate-400">Live scoring sheet for active category will be built here.</p>
