@@ -1,6 +1,6 @@
 <script setup>
 import { useRouter } from "vue-router";
-import dashboardImage from "@/assets/logo/dashboard.png";
+import dashboardImage from "@/assets/img/logo.png.png";
 import oneStarImage from "@/assets/img/one star.png";
 import {
   BarChart3,
@@ -12,6 +12,10 @@ import {
 } from "lucide-vue-next";
 
 const props = defineProps({
+  activeItem: {
+    type: String,
+    default: "DASHBOARD",
+  },
   isMobile: {
     type: Boolean,
     default: false,
@@ -93,9 +97,9 @@ function handleLogout() {
       <a
         v-for="(item, index) in navigation"
         :key="item.label"
-        :class="['sidebar-link', { active: index === 0 }]"
-        href="#dashboard"
-        :aria-current="index === 0 ? 'page' : undefined"
+          :class="['sidebar-link', { active: item.label === props.activeItem }]"
+        :href="item.label === 'MANAGEMENT' ? '/admin/management' : '#dashboard'"
+          :aria-current="item.label === props.activeItem ? 'page' : undefined"
         @click="emit('close-mobile-sidebar')"
       >
         <component :is="item.icon" class="sidebar-icon" :size="18" />
@@ -254,7 +258,7 @@ function handleLogout() {
   position: relative;
   display: flex;
   height: 115px;
-  flex: 0 0 115px;
+  flex: 0 0 130px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -282,13 +286,15 @@ function handleLogout() {
 }
 
 .sidebar-brand img {
-  position: relative;
+  position: absolute;
+  top: 11px;
+  left: 44px;
   z-index: 2;
   display: block;
-  width: 320px;
+  width: 174px;
   max-width: none;
-  height: 160px;
-  max-height: 160px;
+  height: 143px;
+  max-height: 143px;
   object-fit: contain;
 }
 
