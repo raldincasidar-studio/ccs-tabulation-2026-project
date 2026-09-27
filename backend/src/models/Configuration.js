@@ -1,21 +1,5 @@
 import mongoose from "mongoose";
 
-const liveStatusSchema = new mongoose.Schema(
-  {
-    categoryActive: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Category",
-      default: null,
-    },
-    contestantActive: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Contestant",
-      default: null,
-    },
-  },
-  { _id: false },
-);
-
 const configurationSchema = new mongoose.Schema(
   {
     eventTitle: {
@@ -33,10 +17,15 @@ const configurationSchema = new mongoose.Schema(
       default: true,
     },
     liveStatus: {
-      type: liveStatusSchema,
-      default: {
-        categoryActive: null,
-        contestantActive: null,
+      categoryActive: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Category",
+        default: null,
+      },
+      contestantActive: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Contestant",
+        default: null,
       },
     },
   },
