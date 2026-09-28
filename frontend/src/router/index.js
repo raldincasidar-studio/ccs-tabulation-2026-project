@@ -2,7 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { isAuthenticated, getCurrentUser } from '@/services/authService';
 
 import LoginView from '@/views/LoginView.vue';
-import JudgeView from '@/views/JudgeView.vue';
+import JudgeDashboardView from '@/views/JudgeDashboardView.vue';
+import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';
 import AdminView from '@/views/AdminView.vue';
 import ContestantManagement from '@/views/ContestantManagement.vue';
 
@@ -32,7 +33,13 @@ const routes = [
   {
     path: '/judge',
     name: 'judge',
-    component: JudgeView,
+    component: JudgeDashboardView,
+    meta: { requiresAuth: true, role: 'Judge' },
+  },
+  {
+    path: '/judge/category/:categoryId',
+    name: 'JudgeCategoryVote',
+    component: JudgeCategoryVoteView,
     meta: { requiresAuth: true, role: 'Judge' },
   },
   {

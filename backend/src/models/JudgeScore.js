@@ -8,12 +8,8 @@ const rubricScoreSchema = new mongoose.Schema(
     },
     score: {
       type: Number,
-      required: true,
+      default: 0,
       min: 0,
-      validate: {
-        validator: Number.isInteger,
-        message: "Score must be an integer",
-      },
     },
   },
   { _id: false },

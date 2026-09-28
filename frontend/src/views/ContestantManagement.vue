@@ -13,6 +13,7 @@ const category = ref(categories[0]);
 const isMobile = ref(false);
 const isSidebarCollapsed = ref(false);
 const isMobileSidebarOpen = ref(false);
+const isMenuHidden = ref(false);
 const fileInput = ref(null);
 const saveMessage = ref("");
 const contestant = ref({
@@ -36,7 +37,20 @@ function updateViewportState() {
 	if (isMobile.value) {
 		isSidebarCollapsed.value = false;
 		isMobileSidebarOpen.value = false;
+		return;
 	}
+
+	isMenuHidden.value = false;
+}
+
+function handleScrollState() {
+	if (!isMobile.value) {
+		isMenuHidden.value = false;
+		return;
+	}
+
+	const scrollTop = window.scrollY || window.pageYOffset;
+	isMenuHidden.value = scrollTop > 12;
 }
 
 function openFilePicker() {
@@ -70,11 +84,14 @@ function handleLogout() {
 
 onMounted(() => {
 	updateViewportState();
+	handleScrollState();
 	window.addEventListener("resize", updateViewportState);
+	window.addEventListener("scroll", handleScrollState, { passive: true });
 });
 
 onBeforeUnmount(() => {
 	window.removeEventListener("resize", updateViewportState);
+	window.removeEventListener("scroll", handleScrollState);
 	if (contestant.value.photo.startsWith("blob:")) {
 		URL.revokeObjectURL(contestant.value.photo);
 	}
@@ -93,6 +110,7 @@ onBeforeUnmount(() => {
 			<button
 				v-if="isMobile"
 				class="mobile-menu"
+				:class="{ 'is-hidden': isMenuHidden }"
 				type="button"
 				aria-label="Open navigation menu"
 				@click="isMobileSidebarOpen = true"
@@ -217,30 +235,30 @@ onBeforeUnmount(() => {
 .management-shell {
 	--sidebar-width: 218px;
 	position: relative;
-	overflow: hidden;
+	overflow-x: hidden;
 	color: #08065a;
 }
 
 .main-content {
 	min-height: 100vh;
 	margin-left: var(--sidebar-width);
-	padding: 30px 59px 56px 61px;
+	padding: clamp(22px, 2.5vw, 56px) clamp(18px, 2.8vw, 58px) 56px;
 	transition: margin-left 0.25s ease;
 }
 
 .page-content {
-	width: min(100%, 1028px);
-	margin: 0;
+	width: min(100%, 1040px);
+	margin: 0 auto;
 }
 
 .management-banner {
 	position: relative;
 	display: flex;
 	width: min(100%, 965px);
-	height: 166px;
+	height: clamp(120px, 13vw, 170px);
 	align-items: flex-start;
 	overflow: hidden;
-	padding: 27px 24px;
+	padding: clamp(18px, 2vw, 27px) clamp(18px, 2vw, 24px);
 	border-radius: 17px;
 	background-color: #09065d;
 	background-image:
@@ -268,9 +286,9 @@ onBeforeUnmount(() => {
 	margin: 0;
 	color: #dedfff;
 	font-family: "Croparo", Regular, sans-serif;
-	font-size: 45px;
+	font-size: clamp(2rem, 3vw, 3.1rem);
 	font-weight: 500;
-	line-height: 100%;
+	line-height: 1;
 	letter-spacing: 0;
 	-webkit-text-stroke: 0.35px #fff;
 	text-shadow: 0 0 5px rgb(200 203 255 / 35%);
@@ -297,7 +315,7 @@ onBeforeUnmount(() => {
 
 .field > label {
 	font-family: "Croparo", sans-serif;
-	font-size: 15px;
+	font-size: clamp(0.8rem, 0.8vw + 0.45rem, 1rem);
 	font-weight: 500;
 	line-height: 100%;
 	letter-spacing: 0;
@@ -305,7 +323,7 @@ onBeforeUnmount(() => {
 
 .category-select-wrap {
 	position: relative;
-	width: 153px;
+	width: min(100%, 153px);
 	height: 24px;
 	margin-top: 1px;
 }
@@ -335,18 +353,23 @@ onBeforeUnmount(() => {
 
 .contestant-editor {
 	display: grid;
-	grid-template-columns: 250px minmax(0, 1fr);
+	grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
 	align-items: start;
-	column-gap: 39px;
+	column-gap: clamp(18px, 2.8vw, 39px);
 	margin-top: 58px;
 	padding-left: 6px;
+	width: min(100%, 920px);
+}
+
+.photo-column {
+	min-width: 0;
 }
 
 .photo-frame {
 	position: relative;
 	display: flex;
-	width: 250px;
-	height: 318px;
+	width: min(100%, 250px);
+	aspect-ratio: 5 / 6.3;
 	align-items: center;
 	justify-content: center;
 	overflow: hidden;
@@ -413,7 +436,7 @@ onBeforeUnmount(() => {
 .field input {
 	display: block;
 	width: 100%;
-	height: 42px;
+	height: clamp(38px, 2.5vw, 42px);
 	margin-top: 10px;
 	padding: 0 16px;
 	border: 0;
@@ -440,21 +463,22 @@ onBeforeUnmount(() => {
 
 .paired-fields {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-	gap: 41px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: clamp(16px, 2.8vw, 41px);
 	margin-top: 19px;
 }
 
 .group-field {
-	width: calc((100% - 41px) / 2);
+	width: min(100%, calc((100% - 41px) / 2));
 	margin-top: 16px;
 }
 
 .form-actions {
 	display: flex;
 	align-items: flex-end;
-	gap: 111px;
+	gap: clamp(18px, 5vw, 110px);
 	margin-top: 25px;
+	flex-wrap: wrap;
 }
 
 .active-control {
@@ -539,33 +563,102 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1100px) {
+	.management-frame,
+	.management-shell {
+		overflow-x: hidden;
+	}
+
 	.main-content { padding-right: 24px; padding-left: 24px; }
+	.page-content { width: 100%; }
+	.management-banner { width: 100%; }
 	.contestant-editor {
-		position: relative;
-		left: 37px;
-		width: 1028px;
 		grid-template-columns: 250px minmax(0, 1fr);
-		column-gap: 39px;
+		column-gap: 24px;
+		width: 100%;
+		max-width: 100%;
 	}
 	.contestant-editor .photo-frame { width: 250px; }
-	.contestant-editor .paired-fields { gap: 41px; }
-	.contestant-editor .group-field { width: calc((100% - 41px) / 2); }
-	.contestant-editor .form-actions { gap: 111px; }
+	.contestant-editor .paired-fields { gap: 24px; }
+	.contestant-editor .group-field { width: calc((100% - 24px) / 2); }
+	.contestant-editor .form-actions { gap: 40px; }
 }
 
 @media (max-width: 767px) {
-	.main-content { margin-left: 0; padding: 78px 18px 36px; }
+	.management-frame,
+	.management-shell {
+		overflow-x: hidden;
+	}
+
+	.main-content {
+		margin-left: 0;
+		padding: 78px 18px 36px;
+	}
 	.page-content { width: 100%; }
-	.management-banner { height: 132px; align-items: center; padding: 20px; }
-	.management-banner h1 { font-size: clamp(23px, 6vw, 36px); }
-	.category-control { margin-top: 21px; margin-left: 0; }
-	.contestant-editor { grid-template-columns: 1fr; justify-items: center; gap: 30px; margin-top: 38px; padding-left: 0; }
-	.photo-frame { width: 250px; }
-	.contestant-fields { width: 100%; row-gap: 0; padding-top: 0; }
-	.paired-fields { grid-template-columns: 1fr; gap: 18px; margin-top: 18px; }
-	.group-field { width: 100%; }
-	.form-actions { justify-content: space-between; gap: 12px; margin-top: 24px; }
-	.save-button { width: min(174px, 48%); }
+	.management-banner {
+		height: auto;
+		min-height: 132px;
+		align-items: center;
+		padding: 20px 18px;
+		border-radius: 14px;
+	}
+	.management-banner h1 {
+		font-size: clamp(1.8rem, 7vw, 3.2rem);
+		line-height: 1.05;
+		letter-spacing: 0.04em;
+	}
+	.category-control {
+		margin-top: 20px;
+		margin-left: 0;
+	}
+	.category-select-wrap {
+		width: min(100%, 220px);
+	}
+	.contestant-editor {
+		width: 100%;
+		max-width: 100%;
+		grid-template-columns: 1fr;
+		justify-items: stretch;
+		gap: 24px;
+		margin-top: 28px;
+		padding-left: 0;
+	}
+	.photo-column,
+	.contestant-fields {
+		width: 100%;
+	}
+	.photo-frame {
+		width: 100%;
+		max-width: 360px;
+		height: 280px;
+		margin: 0 auto;
+	}
+	.contestant-fields {
+		row-gap: 0;
+		padding-top: 0;
+	}
+	.number-field {
+		width: 100%;
+		max-width: 120px;
+		margin-left: 0;
+	}
+	.paired-fields {
+		grid-template-columns: 1fr;
+		gap: 18px;
+		margin-top: 18px;
+	}
+	.group-field {
+		width: 100%;
+	}
+	.form-actions {
+		justify-content: space-between;
+		gap: 12px;
+		margin-top: 24px;
+		flex-wrap: wrap;
+	}
+	.save-button {
+		width: min(174px, 100%);
+		flex: 1 1 140px;
+	}
 	.mobile-menu {
 		position: absolute;
 		top: 16px;
@@ -581,9 +674,46 @@ onBeforeUnmount(() => {
 		border: 1px solid #2d25c8;
 		border-radius: 5px;
 		background: #08065a;
+		opacity: 1;
+		visibility: visible;
+		transform: translateY(0);
+		transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+	}
+
+	.mobile-menu.is-hidden {
+		opacity: 0;
+		visibility: hidden;
+		transform: translateY(-10px);
+		pointer-events: none;
 	}
 	.mobile-menu span { width: 18px; height: 2px; background: #fff; }
 	.mobile-overlay { position: fixed; inset: 0; z-index: 12; background: rgb(0 0 0 / 45%); }
+}
+
+@media (max-width: 420px) {
+	.main-content { padding-right: 12px; padding-left: 12px; }
+	.management-banner { min-height: 105px; padding: 18px 16px; }
+	.management-banner h1 { font-size: clamp(1.55rem, 8.2vw, 2.5rem); }
+	.category-select-wrap {
+		width: 100%;
+		max-width: 100%;
+	}
+	.photo-frame {
+		width: 100%;
+		height: 250px;
+	}
+	.upload-button {
+		right: 16px;
+		left: 16px;
+		bottom: 18px;
+	}
+	.form-actions {
+		align-items: stretch;
+	}
+	.save-button {
+		width: 100%;
+		max-width: none;
+	}
 }
 
 @media (min-width: 768px) {

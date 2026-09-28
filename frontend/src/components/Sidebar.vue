@@ -40,12 +40,19 @@ const emit = defineEmits([
 const router = useRouter();
 
 const navigation = [
-  { label: "DASHBOARD", icon: LayoutGrid },
-  { label: "CONFIGURATIONS", icon: Settings2 },
-  { label: "MANAGEMENT", icon: BriefcaseBusiness },
-  { label: "CONTESTANTS", icon: Users },
-  { label: "REPORTS", icon: BarChart3 },
+  { label: "DASHBOARD", icon: LayoutGrid, route: "/admin" },
+  { label: "CONFIGURATIONS", icon: Settings2, route: "/admin" },
+  { label: "MANAGEMENT", icon: BriefcaseBusiness, route: "/admin/management" },
+  { label: "CONTESTANTS", icon: Users, route: "/admin" },
+  { label: "REPORTS", icon: BarChart3, route: "/admin" },
 ];
+
+function handleNavigation(item) {
+  emit("close-mobile-sidebar");
+  if (item.route) {
+    router.push(item.route);
+  }
+}
 
 function handleLogout() {
   emit("logout");
@@ -94,17 +101,18 @@ function handleLogout() {
     </div>
 
     <nav class="sidebar-navigation" aria-label="Main navigation">
-      <a
+      <button
         v-for="(item, index) in navigation"
         :key="item.label"
-          :class="['sidebar-link', { active: item.label === props.activeItem }]"
-        :href="item.label === 'MANAGEMENT' ? '/admin/management' : '#dashboard'"
-          :aria-current="item.label === props.activeItem ? 'page' : undefined"
-        @click="emit('close-mobile-sidebar')"
+        type="button"
+        class="sidebar-link"
+        :class="{ active: item.label === props.activeItem }"
+        :aria-current="item.label === props.activeItem ? 'page' : undefined"
+        @click="handleNavigation(item)"
       >
         <component :is="item.icon" class="sidebar-icon" :size="18" />
         <span>{{ item.label }}</span>
-      </a>
+      </button>
     </nav>
 
     <button class="sign-out" type="button" @click="handleLogout()">
@@ -550,7 +558,7 @@ function handleLogout() {
   .sidebar-brand img {
     position: relative;
     top: auto;
-    left: auto;
+    left: 35px;
     width: 250px;
     max-width: none;
     height: 120px;
