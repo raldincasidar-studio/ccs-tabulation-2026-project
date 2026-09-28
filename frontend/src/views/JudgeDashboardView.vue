@@ -76,7 +76,7 @@
           v-for="(cat, index) in categories" 
           :key="cat._id || cat.id || index"
           @click="selectCategory(cat)"
-          class="relative w-[246px] h-[184px] cursor-pointer transition-transform duration-200 hover:scale-[1.03] flex flex-col justify-end items-center"
+          class="relative w-[246px] h-[184px] cursor-pointer transition-transform duration-200 hover:scale-[1.03] flex flex-col justify-end items-center group"
           :class="{ 'md:col-start-2': index === 6 }"
         >
           <!-- Card Background Box (Clipped with 12px radius) -->
@@ -165,16 +165,12 @@ const categories = ref([
 const getTitleClasses = (name = '') => {
   const len = name.length
   if (len > 18) {
-    // For very long titles e.g. "EVENING GOWN / FORMAL WEAR", wrap neatly onto 2 balanced lines
     return 'text-[11.5px] sm:text-[12.5px] leading-[1.1] tracking-tight line-clamp-2 max-w-[96%]'
   } else if (len > 13) {
-    // For medium-long titles e.g. "PRODUCTION NUMBER", "Q&A - CLOSED DOOR"
     return 'text-[13.5px] sm:text-[14.5px] leading-tight tracking-normal whitespace-nowrap'
   } else if (len > 8) {
-    // For medium titles e.g. "PRODUCTION NO", "Q & A FINAL"
     return 'text-[15px] sm:text-[16.5px] leading-none tracking-wide whitespace-nowrap'
   } else {
-    // For short titles e.g. "PLAYSUIT", "ADVOCACY", "UNIFORM"
     return 'text-[18px] sm:text-[20px] leading-none tracking-wider whitespace-nowrap'
   }
 }
@@ -236,8 +232,16 @@ const toggleLiveMode = () => {
   }
 }
 
+// Redirects to Judge Category Vote / Scoresheet page with the selected category
 const selectCategory = (category) => {
-  console.log('Selected Category:', category)
+  const catName = category.name || category.title || 'PLAYSUIT'
+  const categoryIdentifier = category.id || category._id || catName.toLowerCase().replace(/\s+/g, '-')
+
+  router.push({
+    name: 'JudgeCategoryVote',
+    params: { categoryId: categoryIdentifier },
+    query: { category: catName }
+  })
 }
 
 const handleGoBack = async () => {
