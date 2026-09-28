@@ -473,7 +473,7 @@ onBeforeUnmount(() => {
 .active-toggle {
 	position: relative;
 	width: 62px;
-	height: 23px;
+	height: 26px;
 	padding: 0;
 	border: 0;
 	border-radius: 999px;
@@ -484,17 +484,17 @@ onBeforeUnmount(() => {
 
 .active-toggle i {
 	position: absolute;
-	top: 4px;
+	top: 5px;
 	left: 4px;
-	width: 15px;
-	height: 15px;
+	width: 17px;
+	height: 16px;
 	border-radius: 50%;
 	background: #8e9191;
 	transition: left 0.18s ease, background 0.18s ease;
 }
 
 .active-toggle.on i {
-	left: 38px;
+	left: 34px;
 	background: #35b900;
 }
 
