@@ -5,6 +5,7 @@ import LoginView from '@/views/LoginView.vue';
 import JudgeDashboardView from '@/views/JudgeDashboardView.vue';
 import AdminView from '@/views/AdminView.vue';
 import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';  
+import JudgeLiveView from '@/views/JudgeLiveView.vue';
 
 const routes = [
   {
@@ -33,6 +34,12 @@ const routes = [
     path: '/judge/category/:categoryId',
     name: 'JudgeCategoryVote',
     component: JudgeCategoryVoteView,
+    meta: { requiresAuth: true }
+  },
+   {
+    path: '/judge/live',
+    name: 'JudgeLive',
+    component: JudgeLiveView,
     meta: { requiresAuth: true }
   },
   {
