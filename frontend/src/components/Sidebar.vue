@@ -206,8 +206,11 @@ function handleLogout() {
 }
 
 .sidebar.collapsed .sidebar-brand img {
-  width: 76px;
-  max-width: 76px;
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 56px;
+  max-width: 56px;
   max-height: 90px;
   height: auto;
   object-fit: contain;

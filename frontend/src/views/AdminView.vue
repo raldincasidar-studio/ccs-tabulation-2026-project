@@ -58,7 +58,7 @@ function handleLogout() {
     <div
       class="admin-dashboard"
       :style="{
-        '--sidebar-width': isMobile ? '0px' : isSidebarCollapsed ? '60px' : '180px',
+        '--sidebar-width': isMobile ? '0px' : isSidebarCollapsed ? '60px' : '218px',
       }"
       :class="{
         'sidebar-collapsed': isSidebarCollapsed && !isMobile,
@@ -696,6 +696,17 @@ function handleLogout() {
 
   .dashboard-content {
     max-width: 100%;
+  }
+}
+
+@media (min-width: 768px) {
+  .admin-dashboard :deep(.sidebar-navigation) {
+    padding-top: 78px;
+  }
+
+  .admin-dashboard :deep(.sidebar-link),
+  .admin-dashboard :deep(.sidebar-link.active) {
+    min-height: 50px;
   }
 }
 
