@@ -7,6 +7,7 @@ import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';
 import AdminView from '@/views/AdminView.vue';
 import JudgeLiveView from '@/views/JudgeLiveView.vue';
 import AddContestantManagement from '@/views/AddContestantManagement.vue';
+import ReportView from '@/views/ReportView.vue';
 
 const routes = [
   {
@@ -17,6 +18,12 @@ const routes = [
     path: '/reports',
     name: 'reports',
     component: ReportView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/reports',
+    name: 'admin-reports',
+    redirect: { name: 'reports' },
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
