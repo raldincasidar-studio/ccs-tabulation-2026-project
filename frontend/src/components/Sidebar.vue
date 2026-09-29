@@ -38,6 +38,7 @@ const emit = defineEmits([
 ]);
 
 const router = useRouter();
+const route = useRoute();
 
 const navigation = [
   { label: "DASHBOARD", icon: LayoutGrid, route: "/admin" },
@@ -369,6 +370,15 @@ function handleLogout() {
 .sidebar-link:not(.active):hover,
 .sign-out:hover {
   background: rgb(255 255 255 / 10%);
+}
+
+.no-op-link {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  justify-content: flex-start;
+  appearance: none;
 }
 
 .sign-out {

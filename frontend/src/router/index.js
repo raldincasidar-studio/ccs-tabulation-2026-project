@@ -11,7 +11,34 @@ import AddContestantManagement from '@/views/AddContestantManagement.vue';
 const routes = [
   {
     path: '/',
-    redirect: '/login',
+    redirect: '/reports',
+  },
+  {
+    path: '/reports',
+    name: 'reports',
+    component: ReportView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/configurations',
+    name: 'configurations',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/management',
+    name: 'management',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/contestants',
+    name: 'contestants',
+    redirect: '/dashboard',
   },
   {
     path: '/login',
@@ -22,8 +49,7 @@ const routes = [
   {
     path: '/admin',
     name: 'admin',
-    component: AdminView,
-    meta: { requiresAuth: true, role: 'Admin' },
+    redirect: '/dashboard',
   },
   {
     path: '/admin/add-contestant',
