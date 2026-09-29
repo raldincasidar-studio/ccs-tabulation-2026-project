@@ -352,7 +352,7 @@ function handleLogout() {
   border-spacing: 0 4px;
   color: #fff;
   font-family: 'Poppins', sans-serif;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .management-table .number-column { width: 7%; }
@@ -366,11 +366,11 @@ function handleLogout() {
 }
 
 .management-table th {
-  height: 40px;
+  height: 50px;
   padding: 0 10px;
   background: transparent;
   color: #000000;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   text-align: center;
 }
@@ -384,7 +384,7 @@ function handleLogout() {
 }
 
 .management-table td {
-  height: 36px;
+  height: 50px;
   overflow: hidden;
   padding: 0 10px;
   background: #0841c5;
@@ -410,7 +410,7 @@ function handleLogout() {
 .row-number span {
   display: flex;
   width: 100%;
-  height: 36px;
+  height: 50px;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
@@ -433,6 +433,12 @@ function handleLogout() {
   cursor: pointer;
   font: inherit;
   font-weight: 700;
+}
+
+.row-actions button:hover,
+.row-actions button:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .row-actions button + button {
@@ -467,11 +473,11 @@ function handleLogout() {
 
 @media (max-width: 640px) {
   .management-table {
-    font-size: 12px;
+    font-size: 14px;
   }
 
   .management-table th {
-    font-size: 13px;
+    font-size: 16px;
   }
 
   .management-table th,
