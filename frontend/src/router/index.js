@@ -4,6 +4,7 @@ import { isAuthenticated, getCurrentUser } from '@/services/authService';
 import LoginView from '@/views/LoginView.vue';
 import JudgeView from '@/views/JudgeView.vue';
 import AdminView from '@/views/AdminView.vue';
+import ContestantManagementView from '@/views/ContestantManagementView.vue';
 
 const routes = [
   {
@@ -20,6 +21,12 @@ const routes = [
     path: '/admin',
     name: 'admin',
     component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/contestants',
+    name: 'admin-contestants',
+    component: ContestantManagementView,
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
