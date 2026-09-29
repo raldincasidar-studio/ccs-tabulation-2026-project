@@ -6,7 +6,7 @@ import JudgeDashboardView from '@/views/JudgeDashboardView.vue';
 import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';
 import AdminView from '@/views/AdminView.vue';
 import JudgeLiveView from '@/views/JudgeLiveView.vue';
-import ContestantManagement from '@/views/ContestantManagement.vue';
+import AddContestantManagement from '@/views/AddContestantManagement.vue';
 
 const routes = [
   {
@@ -26,9 +26,9 @@ const routes = [
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
-    path: '/admin/management',
-    name: 'management',
-    component: ContestantManagement,
+    path: '/admin/add-contestant',
+    name: 'AddContestantManagement',
+    component: AddContestantManagement,
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
