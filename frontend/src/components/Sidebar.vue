@@ -1,6 +1,7 @@
 <script setup>
 import { RouterLink, useRoute, useRouter } from "vue-router";
 import brandLogo from "@/assets/img/logo.png.png";
+import oneStarImage from "@/assets/img/one star.png";
 import {
   BarChart3,
   BriefcaseBusiness,
@@ -85,7 +86,11 @@ function handleLogout() {
       <span>×</span>
     </button>
 
-    <div class="sidebar-brand" aria-label="Mrs and Mr Computing Studies 2026">
+    <div
+      class="sidebar-brand"
+      :style="{ '--brand-star-image': `url(${oneStarImage})` }"
+      aria-label="Mrs and Mr Computing Studies 2026"
+    >
       <img :src="brandLogo" alt="Mr. and Ms. College of Computing Studies 2026" />
     </div>
 
@@ -199,12 +204,16 @@ function handleLogout() {
   transition: height 0.25s ease, margin-top 0.25s ease, padding 0.25s ease;
 }
 
+.sidebar.collapsed .sidebar-brand::after {
+  display: none;
+}
+
 .sidebar.collapsed .sidebar-brand img {
   position: relative;
   top: auto;
   left: auto;
-  width: 56px;
-  max-width: 56px;
+  width: 61px;
+  max-width: 61px;
   max-height: 90px;
   height: auto;
   object-fit: contain;
@@ -269,12 +278,25 @@ function handleLogout() {
   transition: height 0.25s ease, padding 0.25s ease, margin-top 0.25s ease;
 }
 
+.sidebar-brand::after {
+  position: absolute;
+  top: 44%;
+  right: 12px;
+  z-index: 1;
+  width: 70px;
+  height: 90px;
+  transform: translateY(-50%);
+  background: var(--brand-star-image) center / 90px 90px no-repeat;
+  content: "";
+  pointer-events: none;
+}
+
 .sidebar-brand img {
   position: relative;
   inset: auto;
   z-index: 2;
   display: block;
-  width: min(174px, 100%);
+  width: min(179px, 100%);
   max-width: 100%;
   height: 143px;
   max-height: 100%;
@@ -524,7 +546,7 @@ function handleLogout() {
   .sidebar-brand img {
     position: relative;
     inset: auto;
-    width: min(220px, 100%);
+    width: min(225px, 100%);
     max-width: 100%;
     height: auto;
     max-height: 154px;
