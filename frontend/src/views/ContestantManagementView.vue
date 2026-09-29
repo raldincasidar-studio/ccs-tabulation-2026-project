@@ -375,6 +375,12 @@ function handleLogout() {
   text-align: center;
 }
 
+.management-table th:nth-child(2),
+.management-table th:nth-child(3),
+.management-table th:nth-child(4) {
+  text-align: left;
+}
+
 .management-table th:first-child {
   border-radius: 4px 0 0 4px;
 }
