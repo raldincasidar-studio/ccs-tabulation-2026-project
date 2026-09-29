@@ -1,7 +1,6 @@
 <script setup>
 import { RouterLink, useRoute, useRouter } from "vue-router";
-import dashboardImage from "@/assets/logo/dashboard.png";
-import oneStarImage from "@/assets/img/one star.png";
+import brandLogo from "@/assets/img/logo.png.png";
 import {
   BarChart3,
   BriefcaseBusiness,
@@ -12,6 +11,10 @@ import {
 } from "lucide-vue-next";
 
 const props = defineProps({
+  activeItem: {
+    type: String,
+    default: "DASHBOARD",
+  },
   isMobile: {
     type: Boolean,
     default: false,
@@ -82,23 +85,19 @@ function handleLogout() {
       <span>×</span>
     </button>
 
-    <div
-      class="sidebar-brand"
-      :style="{ '--brand-star-image': `url(${oneStarImage})` }"
-      aria-label="Mrs and Mr Computing Studies 2026"
-    >
-      <img :src="dashboardImage" alt="Computing Studios 2026" />
+    <div class="sidebar-brand" aria-label="Mrs and Mr Computing Studies 2026">
+      <img :src="brandLogo" alt="Mr. and Ms. College of Computing Studies 2026" />
     </div>
 
     <nav class="sidebar-navigation" aria-label="Main navigation">
       <component
         :is="item.to ? RouterLink : 'a'"
-        v-for="(item, index) in navigation"
+        v-for="item in navigation"
         :key="item.label"
         :to="item.to || undefined"
         :href="item.to ? undefined : '#dashboard'"
-        :class="['sidebar-link', { active: item.to ? route.path === item.to : index === 0 }]"
-        :aria-current="(item.to ? route.path === item.to : index === 0) ? 'page' : undefined"
+        :class="['sidebar-link', { active: item.to ? route.path === item.to : item.label === props.activeItem }]"
+        :aria-current="(item.to ? route.path === item.to : item.label === props.activeItem) ? 'page' : undefined"
         @click="emit('close-mobile-sidebar')"
       >
         <component :is="item.icon" class="sidebar-icon" :size="18" />
@@ -200,13 +199,12 @@ function handleLogout() {
   transition: height 0.25s ease, margin-top 0.25s ease, padding 0.25s ease;
 }
 
-.sidebar.collapsed .sidebar-brand::after {
-  display: none;
-}
-
 .sidebar.collapsed .sidebar-brand img {
-  width: 76px;
-  max-width: 76px;
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 56px;
+  max-width: 56px;
   max-height: 90px;
   height: auto;
   object-fit: contain;
@@ -257,7 +255,7 @@ function handleLogout() {
   position: relative;
   display: flex;
   height: 115px;
-  flex: 0 0 115px;
+  flex: 0 0 130px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -271,28 +269,18 @@ function handleLogout() {
   transition: height 0.25s ease, padding 0.25s ease, margin-top 0.25s ease;
 }
 
-.sidebar-brand::after {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  z-index: 1;
-  width: 70px;
-  height: 90px;
-  transform: translateY(-50%);
-  background: var(--brand-star-image) center / 90px 90px no-repeat;
-  content: "";
-  pointer-events: none;
-}
-
 .sidebar-brand img {
   position: relative;
+  inset: auto;
   z-index: 2;
   display: block;
-  width: 320px;
-  max-width: none;
-  height: 160px;
-  max-height: 160px;
+  width: min(174px, 100%);
+  max-width: 100%;
+  height: 143px;
+  max-height: 100%;
+  margin: 0 auto;
   object-fit: contain;
+  transform: translateX(20px);
 }
 
 .sidebar-navigation {
@@ -528,30 +516,19 @@ function handleLogout() {
   }
 
   .sidebar-brand {
-    height: 90px;
-    padding-top: 14px;
-  }
-
-  .sidebar-brand::after {
-    top: 50%;
-    right: 18px;
-    left: auto;
-    width: 52px;
-    height: 52px;
-    background-size: 48px 48px;
-    opacity: 0.9;
-    transform: translateY(-50%);
+    height: 170px;
+    flex-basis: 170px;
+    padding: 8px 18px;
   }
 
   .sidebar-brand img {
     position: relative;
-    top: auto;
-    left: auto;
-    width: 250px;
-    max-width: none;
-    height: 120px;
-    max-height: 120px;
-    margin-right: 18px;
+    inset: auto;
+    width: min(220px, 100%);
+    max-width: 100%;
+    height: auto;
+    max-height: 154px;
+    margin: 0 auto;
   }
 
   .sidebar-navigation {

@@ -69,7 +69,7 @@ function handleLogout() {
   <div class="admin-frame" :style="{ '--star-image': `url(${starImage})` }">
     <div
       class="admin-dashboard"
-      :style="{ '--sidebar-width': isMobile ? '0px' : isSidebarCollapsed ? '60px' : '180px' }"
+      :style="{ '--sidebar-width': isMobile ? '0px' : isSidebarCollapsed ? '60px' : '218px' }"
       :class="{
         'sidebar-collapsed': isSidebarCollapsed && !isMobile,
         'mobile-sidebar-open': isMobileSidebarOpen && isMobile,
@@ -188,7 +188,7 @@ function handleLogout() {
 }
 
 .admin-dashboard {
-  --sidebar-width: 180px;
+  --sidebar-width: 218px;
   position: relative;
   min-height: 100vh;
   overflow: hidden;

@@ -9,6 +9,7 @@ const isSidebarCollapsed = ref(false);
 const isMobileSidebarOpen = ref(false);
 const isMobile = ref(false);
 const isSystemOn = ref(false);
+const isMenuHidden = ref(false);
 
 function updateViewportState() {
   const mobileMode = window.innerWidth < 768;
@@ -23,13 +24,26 @@ function updateViewportState() {
   isMobileSidebarOpen.value = false;
 }
 
+function handleScrollState() {
+  if (!isMobile.value) {
+    isMenuHidden.value = false;
+    return;
+  }
+
+  const scrollTop = window.scrollY || window.pageYOffset;
+  isMenuHidden.value = scrollTop > 12;
+}
+
 onMounted(() => {
   updateViewportState();
+  handleScrollState();
   window.addEventListener("resize", updateViewportState);
+  window.addEventListener("scroll", handleScrollState, { passive: true });
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener("resize", updateViewportState);
+  window.removeEventListener("scroll", handleScrollState);
 });
 
 const quickActions = [
@@ -58,7 +72,7 @@ function handleLogout() {
     <div
       class="admin-dashboard"
       :style="{
-        '--sidebar-width': isMobile ? '0px' : isSidebarCollapsed ? '60px' : '180px',
+        '--sidebar-width': isMobile ? '0px' : isSidebarCollapsed ? '60px' : '218px',
       }"
       :class="{
         'sidebar-collapsed': isSidebarCollapsed && !isMobile,
@@ -68,6 +82,7 @@ function handleLogout() {
       <button
         v-if="isMobile"
         class="mobile-hamburger"
+        :class="{ 'is-hidden': isMenuHidden }"
         type="button"
         aria-label="Open navigation menu"
         :aria-expanded="isMobileSidebarOpen"
@@ -188,7 +203,7 @@ function handleLogout() {
 }
 
 .admin-dashboard {
-  --sidebar-width: 320px;
+  --sidebar-width: 218px;
   position: relative;
   min-height: 100vh;
   overflow: hidden;
@@ -570,92 +585,27 @@ function handleLogout() {
   left: 14px;
   z-index: 30;
   display: none;
-  width: 52px;
-  height: 52px;
+  width: 38px;
+  height: 34px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 4px;
   padding: 0;
-  border: 1px solid rgb(129 170 255 / 55%);
-  border-radius: 12px;
-  background: rgb(8 13 49 / 95%);
-  box-shadow: 0 8px 18px rgb(11 16 68 / 30%);
+  border: 1px solid #2d25c8;
+  border-radius: 5px;
+  background: #08065a;
   box-sizing: border-box;
   cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .mobile-hamburger span {
   display: block;
-  width: 24px;
-  height: 3px;
+  width: 18px;
+  height: 2px;
   border-radius: 999px;
-  background: #edf3ff;
-}
-
-.mobile-sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 12;
-  background: rgb(0 0 0 / 42%);
-}
-
-.sidebar.mobile-open {
-  transform: translateX(0);
-  box-shadow: 0 0 0 1px rgb(89 137 255 / 20%), 0 22px 40px rgb(6 9 34 / 35%);
-}
-
-.sidebar-close {
-  position: absolute;
-  top: 18px;
-  right: 16px;
-  z-index: 4;
-  display: flex;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgb(118 163 255 / 42%);
-  border-radius: 8px;
-  background: rgb(13 19 62 / 70%);
-  color: #edf3ff;
-  cursor: pointer;
-  font-size: 20px;
-  line-height: 1;
-}
-
-.sidebar-close span {
-  display: block;
-  transform: translateY(-1px);
-}
-
-.mobile-hamburger {
-  position: fixed;
-  top: 16px;
-  left: 14px;
-  z-index: 30;
-  display: none;
-  width: 52px;
-  height: 52px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0;
-  border: 1px solid rgb(129 170 255 / 55%);
-  border-radius: 12px;
-  background: rgb(8 13 49 / 95%);
-  box-shadow: 0 8px 18px rgb(11 16 68 / 30%);
-  box-sizing: border-box;
-  cursor: pointer;
-}
-
-.mobile-hamburger span {
-  display: block;
-  width: 24px;
-  height: 3px;
-  border-radius: 999px;
-  background: #edf3ff;
+  background: #fff;
 }
 
 .mobile-sidebar-overlay {
@@ -680,6 +630,12 @@ function handleLogout() {
 @media (max-width: 767px) {
   .mobile-hamburger {
     display: flex;
+  }
+
+  .mobile-hamburger.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-8px);
   }
 
   .admin-dashboard {
@@ -712,63 +668,6 @@ function handleLogout() {
 
   .admin-dashboard {
     min-height: 100vh;
-  }
-
-  .sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(100vw, 360px);
-    height: 100vh;
-    padding: 0 0 10px;
-  }
-
-  .sidebar-brand {
-    height: 90px;
-    padding-top: 14px;
-  }
-
-  .sidebar-brand::after {
-    top: 50%;
-    right: 18px;
-    left: auto;
-    width: 52px;
-    height: 52px;
-    background-size: 48px 48px;
-    opacity: 0.9;
-    transform: translateY(-50%);
-  }
-
-  .sidebar-brand img {
-    position: relative;
-    top: auto;
-    left: auto;
-    width: 250px;
-    max-width: none;
-    height: 120px;
-    max-height: 120px;
-    margin-right: 18px;
-  }
-
-  .sidebar-navigation {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 12px 18px 0;
-  }
-
-  .sidebar-navigation .sidebar-link,
-  .sidebar .sign-out {
-    gap: 10px;
-    min-height: 52px;
-    padding: 0 12px;
-    font-size: 1.1rem;
-    letter-spacing: 0.05em;
-  }
-
-  .sign-out {
-    margin: auto 0 18px;
-    font-size: 1.1rem;
   }
 
   .main-content {
@@ -906,3 +805,4 @@ function handleLogout() {
   }
 }
 </style>
+
