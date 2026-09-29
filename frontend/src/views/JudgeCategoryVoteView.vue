@@ -95,12 +95,12 @@ const filteredCandidates = computed(() => {
 })
 
 const toggleLiveMode = () => {
-  isLiveMode.value = !isLiveMode.value
-  if (isLiveMode.value) {
-    initializeScoresheet()
-  }
+  // When switching Live Mode ON, navigate to the Live Page
+  router.push({
+    name: 'JudgeLive',
+    query: { category: categoryDisplayName.value }
+  })
 }
-
 // ── Data Initialization (API Contract + Local Hydration) ─────────────
 async function initializeScoresheet() {
   isLoading.value = true

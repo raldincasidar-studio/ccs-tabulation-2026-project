@@ -5,6 +5,7 @@ import LoginView from '@/views/LoginView.vue';
 import JudgeDashboardView from '@/views/JudgeDashboardView.vue';
 import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';
 import AdminView from '@/views/AdminView.vue';
+import JudgeLiveView from '@/views/JudgeLiveView.vue';
 import ContestantManagement from '@/views/ContestantManagement.vue';
 
 const routes = [
@@ -41,6 +42,12 @@ const routes = [
     name: 'JudgeCategoryVote',
     component: JudgeCategoryVoteView,
     meta: { requiresAuth: true, role: 'Judge' },
+  },
+   {
+    path: '/judge/live',
+    name: 'JudgeLive',
+    component: JudgeLiveView,
+    meta: { requiresAuth: true }
   },
   {
     // Catch-all route to redirect invalid URLs back to login

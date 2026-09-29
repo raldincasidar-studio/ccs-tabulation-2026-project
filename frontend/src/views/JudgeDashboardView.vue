@@ -226,10 +226,11 @@ const handleImageError = (cat) => {
 }
 
 const toggleLiveMode = () => {
-  isLiveMode.value = !isLiveMode.value
-  if (isLiveMode.value) {
-    loadDashboardData()
-  }
+  // When switching Live Mode ON, navigate to the Live Page
+  router.push({
+    name: 'JudgeLive',
+    query: { category: categoryDisplayName.value }
+  })
 }
 
 // Redirects to Judge Category Vote / Scoresheet page with the selected category
