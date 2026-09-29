@@ -291,30 +291,36 @@ function handleLogout() {
 }
 
 .contestant-management-list {
-  margin-top: 6px;
+  margin-top: 16px;
 }
 
 .management-toolbar {
   display: flex;
-  min-height: 22px;
+  min-height: 30px;
   justify-content: flex-end;
   align-items: flex-start;
 }
 
 .management-add {
-  padding: 0 4px 4px;
-  border: 0;
-  background: transparent;
-  color: #073dd0;
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid #062f9b;
+  border-radius: 4px;
+  background: #073dd0;
+  box-shadow: 0 1px 3px rgb(8 12 65 / 20%);
+  color: #fff;
   cursor: pointer;
   font-family: 'Poppins', sans-serif;
   font-size: 12px;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .management-add:hover {
-  color: #061e7a;
+  background: #062f9b;
 }
 
 .management-state {
@@ -363,9 +369,9 @@ function handleLogout() {
   height: 40px;
   padding: 0 10px;
   background: transparent;
-  color: #080d36;
+  color: #000000;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 700;
   text-align: center;
 }
 
@@ -434,7 +440,7 @@ function handleLogout() {
 }
 
 .row-actions .delete-action {
-  color: #f02035;
+  color: #ff0019;
 }
 
 @media (max-width: 767px) {
