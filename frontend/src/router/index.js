@@ -26,6 +26,12 @@ const routes = [
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
+    path: '/admin/judges',
+    name: 'admin-judges',
+    component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
     path: '/admin/add-contestant',
     name: 'AddContestantManagement',
     component: AddContestantManagement,

@@ -42,7 +42,7 @@ const router = useRouter();
 const navigation = [
   { label: "DASHBOARD", icon: LayoutGrid, route: "/admin" },
   { label: "CONFIGURATIONS", icon: Settings2, route: "/admin" },
-  { label: "JUDGES", icon: BriefcaseBusiness, route: "/admin" },
+  { label: "JUDGES", icon: BriefcaseBusiness, route: "/admin/judges" },
   { label: "CONTESTANTS", icon: Users, route: "/admin/add-contestant" },
   { label: "REPORTS", icon: BarChart3, route: "/admin" },
 ];
