@@ -37,7 +37,7 @@ const router = useRouter();
 const route = useRoute();
 
 const navigation = [
-  { label: "DASHBOARD", icon: LayoutGrid },
+  { label: "DASHBOARD", icon: LayoutGrid, to: "/admin" },
   { label: "CONFIGURATIONS", icon: Settings2 },
   { label: "MANAGEMENT", icon: BriefcaseBusiness, to: "/admin/contestants" },
   { label: "CONTESTANTS", icon: Users },
@@ -347,9 +347,11 @@ function handleLogout() {
 }
 
 .sidebar-link.active {
-  min-height: 35px;
-  color: #f5f6ff;
-  background: #11156d;
+  min-height: 42px;
+  color: rgb(245 246 255 / 82%);
+  background: rgb(17 21 109 / 62%);
+  box-shadow: inset 3px 0 0 rgb(129 170 255 / 55%);
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .sidebar-link:not(.active):hover,
