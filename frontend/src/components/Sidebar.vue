@@ -1,6 +1,6 @@
 <script setup>
 import { useRouter } from "vue-router";
-import dashboardImage from "@/assets/logo/dashboard.png";
+import dashboardImage from "@/assets/img/logo.png.png";
 import oneStarImage from "@/assets/img/one star.png";
 import {
   BarChart3,
@@ -12,6 +12,10 @@ import {
 } from "lucide-vue-next";
 
 const props = defineProps({
+  activeItem: {
+    type: String,
+    default: "DASHBOARD",
+  },
   isMobile: {
     type: Boolean,
     default: false,
@@ -36,12 +40,19 @@ const emit = defineEmits([
 const router = useRouter();
 
 const navigation = [
-  { label: "DASHBOARD", icon: LayoutGrid },
-  { label: "CONFIGURATIONS", icon: Settings2 },
-  { label: "MANAGEMENT", icon: BriefcaseBusiness },
-  { label: "CONTESTANTS", icon: Users },
-  { label: "REPORTS", icon: BarChart3 },
+  { label: "DASHBOARD", icon: LayoutGrid, route: "/admin" },
+  { label: "CONFIGURATIONS", icon: Settings2, route: "/admin" },
+  { label: "MANAGEMENT", icon: BriefcaseBusiness, route: "/admin/management" },
+  { label: "CONTESTANTS", icon: Users, route: "/admin" },
+  { label: "REPORTS", icon: BarChart3, route: "/admin" },
 ];
+
+function handleNavigation(item) {
+  emit("close-mobile-sidebar");
+  if (item.route) {
+    router.push(item.route);
+  }
+}
 
 function handleLogout() {
   emit("logout");
@@ -90,17 +101,18 @@ function handleLogout() {
     </div>
 
     <nav class="sidebar-navigation" aria-label="Main navigation">
-      <a
+      <button
         v-for="(item, index) in navigation"
         :key="item.label"
-        :class="['sidebar-link', { active: index === 0 }]"
-        href="#dashboard"
-        :aria-current="index === 0 ? 'page' : undefined"
-        @click="emit('close-mobile-sidebar')"
+        type="button"
+        class="sidebar-link"
+        :class="{ active: item.label === props.activeItem }"
+        :aria-current="item.label === props.activeItem ? 'page' : undefined"
+        @click="handleNavigation(item)"
       >
         <component :is="item.icon" class="sidebar-icon" :size="18" />
         <span>{{ item.label }}</span>
-      </a>
+      </button>
     </nav>
 
     <button class="sign-out" type="button" @click="handleLogout()">
@@ -202,8 +214,11 @@ function handleLogout() {
 }
 
 .sidebar.collapsed .sidebar-brand img {
-  width: 76px;
-  max-width: 76px;
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 56px;
+  max-width: 56px;
   max-height: 90px;
   height: auto;
   object-fit: contain;
@@ -254,7 +269,7 @@ function handleLogout() {
   position: relative;
   display: flex;
   height: 115px;
-  flex: 0 0 115px;
+  flex: 0 0 130px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -282,13 +297,15 @@ function handleLogout() {
 }
 
 .sidebar-brand img {
-  position: relative;
+  position: absolute;
+  top: 11px;
+  left: 44px;
   z-index: 2;
   display: block;
-  width: 320px;
+  width: 174px;
   max-width: none;
-  height: 160px;
-  max-height: 160px;
+  height: 143px;
+  max-height: 143px;
   object-fit: contain;
 }
 
@@ -541,7 +558,7 @@ function handleLogout() {
   .sidebar-brand img {
     position: relative;
     top: auto;
-    left: auto;
+    left: 35px;
     width: 250px;
     max-width: none;
     height: 120px;
