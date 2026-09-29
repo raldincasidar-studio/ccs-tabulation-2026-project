@@ -7,6 +7,9 @@ import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';
 import AdminView from '@/views/AdminView.vue';
 import JudgeLiveView from '@/views/JudgeLiveView.vue';
 import AddContestantManagement from '@/views/AddContestantManagement.vue';
+import ConfigurationView from '@/views/ConfigurationView.vue';
+import AddContestantGroupView from '@/views/AddContestantGroupView.vue';
+import AddCategoriesView from '@/views/AddCategoriesView.vue';
 
 const routes = [
   {
@@ -29,6 +32,36 @@ const routes = [
     path: '/admin/add-contestant',
     name: 'AddContestantManagement',
     component: AddContestantManagement,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/configurations',
+    name: 'Configuration',
+    component: ConfigurationView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+  path: '/admin/contestant-groups/add',
+  name: 'AddContestantGroup',
+  component: AddContestantGroupView,
+  meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/contestant-groups/edit/:id',
+    name: 'EditContestantGroup',
+    component: AddContestantGroupView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/categories/add',
+    name: 'AddCategories',
+    component: AddCategoriesView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/categories/edit/:id',
+    name: 'EditCategories',
+    component: AddCategoriesView,
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
