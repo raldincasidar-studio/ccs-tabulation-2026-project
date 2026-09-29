@@ -32,10 +32,6 @@ function getGroupName(group) {
   return group.name || 'Unassigned';
 }
 
-function hideBrokenImage(event) {
-  event.target.hidden = true;
-}
-
 async function fetchContestants() {
   loading.value = true;
   error.value = '';
@@ -116,25 +112,19 @@ function handleLogout() {
             <h1>CONTESTANT MANAGEMENT</h1>
           </header>
 
-          <div class="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div class="text-lg font-semibold text-slate-700">Contestants</div>
-              <button
-                class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"
-                type="button"
-              >
-                + Add
-              </button>
+          <div class="contestant-management-list">
+            <div class="management-toolbar">
+              <button class="management-add" type="button">+ Add</button>
             </div>
 
-            <div v-if="loading" class="px-5 py-10 text-center text-slate-500">
+            <div v-if="loading" class="management-state">
               Loading contestants...
             </div>
 
-            <div v-else-if="error" class="px-5 py-10 text-center">
+            <div v-else-if="error" class="management-state">
               <p class="text-red-600">{{ error }}</p>
               <button
-                class="mt-4 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+                class="management-retry"
                 type="button"
                 @click="fetchContestants"
               >
@@ -142,49 +132,44 @@ function handleLogout() {
               </button>
             </div>
 
-            <div v-else-if="contestants.length === 0" class="px-5 py-10 text-center text-slate-500">
+            <div v-else-if="contestants.length === 0" class="management-state">
               No contestants found.
             </div>
 
-            <div v-else class="contestant-list">
-              <article
-                v-for="(contestant, index) in contestants"
-                :key="contestant._id || contestant.id || index"
-                class="contestant-row"
-              >
-                <div class="contestant-photo" aria-hidden="true">
-                  <span></span>
-                  <i></i>
-                  <img
-                    v-if="contestant.image"
-                    :src="contestant.image"
-                    alt=""
-                    loading="lazy"
-                    @error="hideBrokenImage"
+            <div v-else class="management-table-scroll">
+              <table class="management-table">
+                <colgroup>
+                  <col class="number-column">
+                  <col class="name-column">
+                  <col class="label-column">
+                  <col class="group-column">
+                  <col class="actions-column">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Name</th>
+                    <th scope="col">Label</th>
+                    <th scope="col">Group</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(contestant, index) in contestants"
+                    :key="contestant._id || contestant.id || index"
                   >
-                </div>
-                <div class="contestant-details">
-                  <div class="contestant-line">
-                    <div class="contestant-info">
-                      <span class="contestant-name">{{ contestant.name }}</span>
-                      <span class="contestant-meta">
-                        {{ contestant.label }} <span aria-hidden="true">·</span> {{ getGroupName(contestant.group) }}
-                      </span>
-                    </div>
-                    <div class="contestant-actions">
-                      <button class="font-semibold text-blue-800 hover:text-blue-950" type="button">
-                        Edit
-                      </button>
-                      <button class="font-semibold text-red-700 hover:text-red-900" type="button">
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                  <div class="vote-track" aria-hidden="true">
-                    <span></span>
-                  </div>
-                </div>
-              </article>
+                    <td class="row-number"><span>{{ index + 1 }}</span></td>
+                    <td>{{ contestant.name }}</td>
+                    <td>{{ contestant.label }}</td>
+                    <td>{{ getGroupName(contestant.group) }}</td>
+                    <td class="row-actions">
+                      <button type="button">Edit</button>
+                      <button class="delete-action" type="button">Delete</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -305,123 +290,151 @@ function handleLogout() {
   background: rgb(0 0 0 / 42%);
 }
 
-.contestant-list {
-  padding: 10px 20px 18px;
+.contestant-management-list {
+  margin-top: 6px;
 }
 
-.contestant-row {
+.management-toolbar {
   display: flex;
-  min-height: 62px;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  border-bottom: 1px solid #e5e8ef;
+  min-height: 22px;
+  justify-content: flex-end;
+  align-items: flex-start;
 }
 
-.contestant-photo {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-  overflow: hidden;
-  border: 1px solid #bec6da;
-  border-radius: 6px;
-  background: linear-gradient(145deg, #a9c4ee 0 44%, #d85f5b 45% 70%, #d2a742 71% 100%);
-  box-shadow: 0 1px 2px rgb(16 19 61 / 18%);
-}
-
-.contestant-photo span {
-  position: absolute;
-  top: 5px;
-  left: 11px;
-  width: 9px;
-  height: 11px;
-  border-radius: 48% 48% 44% 44%;
-  background: #d6a07c;
-  box-shadow: 0 -3px 0 -1px #30231f;
-}
-
-.contestant-photo i {
-  position: absolute;
-  bottom: -3px;
-  left: 5px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50% 50% 0 0;
-  background: #bb2935;
-}
-
-.contestant-photo img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.contestant-details {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.contestant-line {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.contestant-info {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-  color: #34416b;
-  font-family: 'Croparo', 'Poppins', sans-serif;
-  text-transform: uppercase;
-}
-
-.contestant-name {
-  overflow: hidden;
-  font-size: 16px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.contestant-meta {
-  overflow: hidden;
-  color: #687394;
+.management-add {
+  padding: 0 4px 4px;
+  border: 0;
+  background: transparent;
+  color: #073dd0;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
   font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 700;
+  line-height: 1;
 }
 
-.contestant-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 14px;
+.management-add:hover {
+  color: #061e7a;
+}
+
+.management-state {
+  padding: 24px 12px;
+  color: #687394;
+  text-align: center;
+}
+
+.management-retry {
+  margin-top: 12px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: #10146d;
+  color: #fff;
+  cursor: pointer;
+}
+
+.management-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.management-table {
+  width: 100%;
+  min-width: 640px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
   font-size: 13px;
 }
 
-.vote-track {
-  width: 100%;
-  height: 12px;
-  margin-top: 5px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #dfe3ea;
+.management-table .number-column { width: 7%; }
+.management-table .name-column { width: 30%; }
+.management-table .label-column { width: 25%; }
+.management-table .group-column { width: 23%; }
+.management-table .actions-column { width: 15%; }
+
+.management-table thead tr {
+  background: linear-gradient(105deg, #eff000 0%, #b2c51b 34%, #3a9b9a 62%, #063cd2 100%);
 }
 
-.vote-track span {
-  display: block;
-  width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #0f2c88 0%, #0c1d72 100%);
+.management-table th {
+  height: 40px;
+  padding: 0 10px;
+  background: transparent;
+  color: #080d36;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.management-table th:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.management-table th:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.management-table td {
+  height: 36px;
+  overflow: hidden;
+  padding: 0 10px;
+  background: #0841c5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.management-table td:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.management-table td:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.management-table td.row-number {
+  padding: 0 4px 0 0;
+  background: transparent;
+  color: #eff000;
+  text-align: center;
+}
+
+.row-number span {
+  display: flex;
+  width: 100%;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #001c5b 0%, #063ba7 100%);
+}
+
+.management-table td:nth-child(2) {
+  border-radius: 4px 0 0 4px;
+}
+
+.management-table .row-actions {
+  text-align: center;
+}
+
+.row-actions button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.row-actions button + button {
+  margin-left: 12px;
+}
+
+.row-actions .delete-action {
+  color: #f02035;
 }
 
 @media (max-width: 767px) {
@@ -447,18 +460,22 @@ function handleLogout() {
 }
 
 @media (max-width: 640px) {
-  .contestant-list {
-    padding-right: 12px;
-    padding-left: 12px;
-  }
-
-  .contestant-line {
-    align-items: flex-start;
-  }
-
-  .contestant-actions {
-    gap: 8px;
+  .management-table {
     font-size: 12px;
+  }
+
+  .management-table th {
+    font-size: 13px;
+  }
+
+  .management-table th,
+  .management-table td {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .row-actions button + button {
+    margin-left: 8px;
   }
 }
 
