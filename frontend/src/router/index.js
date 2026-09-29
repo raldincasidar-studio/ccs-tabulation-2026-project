@@ -5,11 +5,39 @@ import LoginView from '@/views/LoginView.vue';
 import JudgeDashboardView from '@/views/JudgeDashboardView.vue';
 import AdminView from '@/views/AdminView.vue';
 import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';  
+import ReportView from '@/views/ReportView.vue';
 
 const routes = [
   {
     path: '/',
-    redirect: '/login',
+    redirect: '/reports',
+  },
+  {
+    path: '/reports',
+    name: 'reports',
+    component: ReportView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/configurations',
+    name: 'configurations',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/management',
+    name: 'management',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/contestants',
+    name: 'contestants',
+    redirect: '/dashboard',
   },
   {
     path: '/login',
@@ -20,8 +48,7 @@ const routes = [
   {
     path: '/admin',
     name: 'admin',
-    component: AdminView,
-    meta: { requiresAuth: true, role: 'Admin' },
+    redirect: '/dashboard',
   },
   {
     path: '/judge',

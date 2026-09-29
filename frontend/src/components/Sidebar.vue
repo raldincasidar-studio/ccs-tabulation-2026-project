@@ -1,5 +1,5 @@
 <script setup>
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import dashboardImage from "@/assets/logo/dashboard.png";
 import oneStarImage from "@/assets/img/one star.png";
 import {
@@ -34,14 +34,20 @@ const emit = defineEmits([
 ]);
 
 const router = useRouter();
+const route = useRoute();
 
 const navigation = [
-  { label: "DASHBOARD", icon: LayoutGrid },
-  { label: "CONFIGURATIONS", icon: Settings2 },
-  { label: "MANAGEMENT", icon: BriefcaseBusiness },
-  { label: "CONTESTANTS", icon: Users },
-  { label: "REPORTS", icon: BarChart3 },
+  { label: "DASHBOARD", icon: LayoutGrid, to: "/dashboard", action: "navigate" },
+  { label: "CONFIGURATIONS", icon: Settings2, to: "/configurations", action: "noop" },
+  { label: "MANAGEMENT", icon: BriefcaseBusiness, to: "/management", action: "noop" },
+  { label: "CONTESTANTS", icon: Users, to: "/contestants", action: "noop" },
+  { label: "REPORTS", icon: BarChart3, to: "/reports", action: "navigate" },
 ];
+
+function handleNoopClick(event) {
+  event.preventDefault();
+  event.stopPropagation();
+}
 
 function handleLogout() {
   emit("logout");
@@ -90,17 +96,30 @@ function handleLogout() {
     </div>
 
     <nav class="sidebar-navigation" aria-label="Main navigation">
-      <a
-        v-for="(item, index) in navigation"
-        :key="item.label"
-        :class="['sidebar-link', { active: index === 0 }]"
-        href="#dashboard"
-        :aria-current="index === 0 ? 'page' : undefined"
-        @click="emit('close-mobile-sidebar')"
-      >
-        <component :is="item.icon" class="sidebar-icon" :size="18" />
-        <span>{{ item.label }}</span>
-      </a>
+      <template v-for="item in navigation" :key="item.label">
+        <router-link
+          v-if="item.action === 'navigate'"
+          :to="item.to"
+          class="sidebar-link"
+          active-class="bg-blue-800"
+          @click="emit('close-mobile-sidebar')"
+        >
+          <component :is="item.icon" class="sidebar-icon" :size="18" />
+          <span>{{ item.label }}</span>
+          <span v-if="route.path === item.to" class="ml-auto shrink-0 text-white" aria-hidden="true">&gt;</span>
+        </router-link>
+
+        <button
+          v-else
+          type="button"
+          class="sidebar-link no-op-link"
+          :aria-label="item.label"
+          @click="handleNoopClick"
+        >
+          <component :is="item.icon" class="sidebar-icon" :size="18" />
+          <span>{{ item.label }}</span>
+        </button>
+      </template>
     </nav>
 
     <button class="sign-out" type="button" @click="handleLogout()">
@@ -352,6 +371,15 @@ function handleLogout() {
 .sidebar-link:not(.active):hover,
 .sign-out:hover {
   background: rgb(255 255 255 / 10%);
+}
+
+.no-op-link {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  justify-content: flex-start;
+  appearance: none;
 }
 
 .sign-out {
