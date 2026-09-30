@@ -40,9 +40,9 @@ const emit = defineEmits([
 const router = useRouter();
 
 const navigation = [
-  { label: "DASHBOARD", icon: LayoutGrid, route: "/dashboard" },
-  { label: "CONFIGURATIONS", icon: Settings2, route: "/dashboard" },
-  { label: "JUDGES", icon: BriefcaseBusiness, route: "/dashboard" },
+  { label: "DASHBOARD", icon: LayoutGrid, route: "/admin" },
+  { label: "CONFIGURATIONS", icon: Settings2, route: "/admin/configurations" },
+  { label: "JUDGES", icon: BriefcaseBusiness, route: "/admin" },
   { label: "CONTESTANTS", icon: Users, route: "/admin/add-contestant" },
   { label: "REPORTS", icon: BarChart3, route: "/reports" },
 ];
