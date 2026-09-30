@@ -11,6 +11,9 @@ const isMobileSidebarOpen = ref(false);
 
 const checkMobile = () => {
   isMobile.value = window.innerWidth <= 767;
+  if (!isMobile.value) {
+    isMobileSidebarOpen.value = false;
+  }
 };
 
 // Data State
@@ -78,7 +81,6 @@ const handleCategoryChange = async () => {
 
   if (!selectedCategory.value) return;
 
-  // Find which group this category belongs to
   const linkedGroup = groups.value.find(g => g.categoriesIncluded?.includes(selectedCategory.value));
   
   if (linkedGroup) {
@@ -119,7 +121,29 @@ const handleSave = async () => {
 
 <template>
   <div class="admin-layout">
-    <!-- Sidebar Component -->
+    
+    <!-- 1. Mobile Hamburger Button (Shows only on <= 767px) -->
+    <button
+      v-if="isMobile"
+      class="mobile-hamburger"
+      type="button"
+      aria-label="Open navigation menu"
+      @click="isMobileSidebarOpen = true"
+    >
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <!-- 2. Dark Overlay Backdrop (Closes sidebar on tap) -->
+    <div
+      v-if="isMobile && isMobileSidebarOpen"
+      class="mobile-sidebar-overlay"
+      aria-hidden="true"
+      @click="isMobileSidebarOpen = false"
+    ></div>
+
+    <!-- 3. Sidebar Component -->
     <Sidebar
       active-item="LIVE CONTROLS"
       :is-sidebar-collapsed="isSidebarCollapsed"
@@ -130,7 +154,7 @@ const handleSave = async () => {
       @close-mobile-sidebar="isMobileSidebarOpen = false"
     />
 
-    <!-- Main Content Area -->
+    <!-- 4. Main Content Area -->
     <main
       class="main-content"
       :class="{
@@ -223,9 +247,54 @@ const handleSave = async () => {
   min-height: 100vh;
   background-color: #f4f5f8;
   font-family: Arial, sans-serif;
+  position: relative;
 }
 
-/* Main Content (Shifted by the Sidebar width) */
+/* Mobile Hamburger Button matching Sidebar styles */
+.mobile-hamburger {
+  position: fixed;
+  top: 16px;
+  left: 14px;
+  z-index: 30;
+  display: none;
+  width: 46px;
+  height: 46px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0;
+  border: 1px solid rgb(129 170 255 / 55%);
+  border-radius: 10px;
+  background: rgb(8 13 49 / 95%);
+  box-shadow: 0 8px 18px rgb(11 16 68 / 30%);
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.mobile-hamburger:active {
+  transform: scale(0.95);
+}
+
+.mobile-hamburger span {
+  display: block;
+  width: 22px;
+  height: 2.5px;
+  border-radius: 999px;
+  background: #edf3ff;
+}
+
+/* Overlay Backdrop */
+.mobile-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  background: rgb(0 0 0 / 50%);
+  backdrop-filter: blur(2px);
+}
+
+/* Main Content Area */
 .main-content {
   flex: 1;
   margin-left: var(--sidebar-width);
@@ -239,11 +308,6 @@ const handleSave = async () => {
   margin-left: 60px;
 }
 
-.main-content.mobile-view {
-  margin-left: 0;
-  padding: 1.5rem;
-}
-
 .loading-state {
   color: #03014b;
   font-weight: bold;
@@ -252,10 +316,11 @@ const handleSave = async () => {
   margin-top: 4rem;
 }
 
-/* Centering the Entire Content */
+/* Centered Form Wrapper */
 .content-wrapper {
-  width: min(100%, 1040px);
+  max-width: 880px;
   margin: 0 auto;
+  width: 100%;
 }
 
 /* Banner Styles */
@@ -423,19 +488,31 @@ const handleSave = async () => {
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
+@media (max-width: 767px) {
+  .mobile-hamburger {
+    display: flex;
+  }
+
+  .main-content {
+    margin-left: 0 !important;
+    padding: 5rem 1.25rem 2rem !important; /* Top padding accommodates the hamburger icon */
+  }
+
   .banner {
     height: 120px;
     margin-bottom: 1.5rem;
   }
+
   .banner-text {
     font-size: 1.8rem;
   }
+
   .action-area {
     flex-direction: column-reverse;
     align-items: stretch;
     gap: 1rem;
   }
+
   .message-wrapper {
     padding-right: 0;
   }
