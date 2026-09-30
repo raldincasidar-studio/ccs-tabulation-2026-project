@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { ChevronRight } from "lucide-vue-next";
 import Sidebar from "@/components/Sidebar.vue";
 import starImage from "@/assets/img/star.png";
+import cameraPlusImage from "@/assets/img/camm.svg";
 import {
 	createContestant,
 	getContestantGroups,
@@ -17,9 +18,11 @@ const isMobile = ref(false);
 const isSidebarCollapsed = ref(false);
 const isMobileSidebarOpen = ref(false);
 const isMenuHidden = ref(false);
+const fileInput = ref(null);
 const groups = ref([]);
 const loading = ref(true);
 const saving = ref(false);
+const photoLoading = ref(false);
 const error = ref("");
 const saveError = ref("");
 const imagePreviewFailed = ref(false);
@@ -38,6 +41,42 @@ const hasValidContestant = computed(() =>
 	contestant.value.group &&
 	groups.value.some((group) => group._id === contestant.value.group),
 );
+
+function openFilePicker() {
+	fileInput.value?.click();
+}
+
+function handlePhotoChange(event) {
+	const input = event.target;
+	const file = input.files?.[0];
+	input.value = "";
+	if (!file) return;
+
+	saveError.value = "";
+	if (!file.type.startsWith("image/")) {
+		saveError.value = "Choose an image file.";
+		return;
+	}
+	if (file.size > 5 * 1024 * 1024) {
+		saveError.value = "Choose an image smaller than 5 MB.";
+		return;
+	}
+
+	photoLoading.value = true;
+	const reader = new FileReader();
+	reader.onload = () => {
+		if (typeof reader.result === "string") {
+			contestant.value.image = reader.result;
+			imagePreviewFailed.value = false;
+		}
+		photoLoading.value = false;
+	};
+	reader.onerror = () => {
+		saveError.value = "Unable to read this image. Choose another file.";
+		photoLoading.value = false;
+	};
+	reader.readAsDataURL(file);
+}
 
 function updateViewportState() {
 	isMobile.value = window.innerWidth < 768;
@@ -185,16 +224,6 @@ onBeforeUnmount(() => {
 						<h1>{{ isEditing ? "EDIT CONTESTANT" : "ADD CONTESTANT" }}</h1>
 					</header>
 
-					<div class="category-control">
-						<label for="contestant-group">GROUP</label>
-						<div class="category-select-wrap">
-							<select id="contestant-group" v-model="contestant.group" aria-label="Select contestant group">
-								<option disabled value="">Select a group</option>
-								<option v-for="group in groups" :key="group._id" :value="group._id">{{ group.name }}</option>
-							</select>
-							<ChevronRight :size="14" aria-hidden="true" />
-						</div>
-					</div>
 					<p v-if="!loading && !error && groups.length === 0" class="form-error" role="alert">
 						Create a contestant group before adding contestants.
 					</p>
@@ -214,25 +243,38 @@ onBeforeUnmount(() => {
 									:alt="`${contestant.name || 'Contestant'} preview`"
 									@error="imagePreviewFailed = true"
 								/>
-								<p v-else class="photo-placeholder">Image preview</p>
-							</div>
-							<div class="image-field field">
-								<label for="contestant-image">IMAGE URL</label>
+								<p v-else class="photo-placeholder">{{ photoLoading ? "Preparing photo..." : "Photo preview" }}</p>
 								<input
-									id="contestant-image"
-									v-model="contestant.image"
-									type="url"
-									placeholder="https://example.com/photo.jpg"
-									@input="imagePreviewFailed = false"
+									ref="fileInput"
+									class="file-input"
+									type="file"
+									accept="image/*"
+									@change="handlePhotoChange"
 								/>
+								<button class="upload-button" type="button" :disabled="photoLoading" @click="openFilePicker">
+									<img class="upload-camera" :src="cameraPlusImage" alt="" />
+									<span>{{ photoLoading ? "Preparing Photo" : "Upload Photo" }}</span>
+								</button>
 							</div>
 						</section>
 
 						<section class="contestant-fields" aria-label="Contestant information">
 							<div class="paired-fields">
-								<div class="field">
-									<label for="contestant-name">NAME</label>
-									<input id="contestant-name" v-model="contestant.name" type="text" required />
+								<div class="name-group-column">
+									<div class="field">
+										<label for="contestant-name">NAME</label>
+										<input id="contestant-name" v-model="contestant.name" type="text" required />
+									</div>
+									<div class="group-control field">
+										<label for="contestant-group">GROUP</label>
+										<div class="category-select-wrap">
+											<select id="contestant-group" v-model="contestant.group" aria-label="Select contestant group" required>
+												<option disabled value="">Select a group</option>
+												<option v-for="group in groups" :key="group._id" :value="group._id">{{ group.name }}</option>
+											</select>
+											<ChevronRight :size="14" aria-hidden="true" />
+										</div>
+									</div>
 								</div>
 								<div class="field">
 									<label for="contestant-label">LABEL</label>
@@ -241,7 +283,7 @@ onBeforeUnmount(() => {
 							</div>
 							<div class="form-actions">
 								<button class="cancel-button" type="button" @click="goBack">CANCEL</button>
-								<button class="save-button" type="submit" :disabled="saving || groups.length === 0">
+								<button class="save-button" type="submit" :disabled="saving || photoLoading || groups.length === 0">
 									{{ saving ? "SAVING..." : isEditing ? "SAVE CHANGES" : "CREATE CONTESTANT" }}
 								</button>
 							</div>
@@ -323,12 +365,6 @@ onBeforeUnmount(() => {
 	text-shadow: 0 0 5px rgb(200 203 255 / 35%);
 }
 
-.category-control {
-	margin-top: 27px;
-	margin-left: 7px;
-}
-
-.category-control > label,
 .field > label {
 	display: block;
 	color: #2119ae;
@@ -336,10 +372,6 @@ onBeforeUnmount(() => {
 	font-size: 11px;
 	font-weight: 400;
 	line-height: 1.2;
-}
-
-.category-control > label {
-	font-family: "Poppins", sans-serif;
 }
 
 .field > label {
@@ -422,6 +454,45 @@ onBeforeUnmount(() => {
 	font-size: 13px;
 }
 
+.file-input {
+	display: none;
+}
+
+.upload-button {
+	position: absolute;
+	right: 32px;
+	bottom: 45px;
+	left: 31px;
+	display: flex;
+	height: 24px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: 4px;
+	background: #1610a8;
+	color: #fff;
+	cursor: pointer;
+	font-family: "Poppins", sans-serif;
+	font-size: 10px;
+	font-weight: 700;
+}
+
+.upload-button:disabled {
+	cursor: wait;
+	opacity: 0.7;
+}
+
+.upload-camera {
+	position: absolute;
+	top: -28px;
+	left: 50%;
+	width: 25px;
+	height: 25px;
+	filter: drop-shadow(0 0 2px rgb(80 74 255 / 35%));
+	transform: translateX(-50%);
+}
+
 .contestant-fields {
 	display: grid;
 	min-width: 0;
@@ -452,15 +523,22 @@ onBeforeUnmount(() => {
 	outline-color: #7770ed;
 }
 
-.image-field {
-	margin-top: 16px;
-}
-
 .paired-fields {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: clamp(16px, 2.8vw, 41px);
 	margin-top: 19px;
+}
+
+.name-group-column {
+	display: grid;
+	min-width: 0;
+	align-content: start;
+	gap: 18px;
+}
+
+.group-control {
+	min-width: 0;
 }
 
 .form-actions {
@@ -563,10 +641,6 @@ onBeforeUnmount(() => {
 		line-height: 1.05;
 		letter-spacing: 0.04em;
 	}
-	.category-control {
-		margin-top: 20px;
-		margin-left: 0;
-	}
 	.category-select-wrap {
 		width: min(100%, 220px);
 	}
@@ -588,6 +662,11 @@ onBeforeUnmount(() => {
 		max-width: 360px;
 		height: 280px;
 		margin: 0 auto;
+	}
+	.upload-button {
+		right: 16px;
+		bottom: 18px;
+		left: 16px;
 	}
 	.contestant-fields {
 		row-gap: 0;
