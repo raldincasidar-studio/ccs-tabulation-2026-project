@@ -1,41 +1,20 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import api from '@/services/api'
-
 const props = defineProps({
-	judges: Array,
-	isLoading: Boolean,
-	errorMessage: String,
+	judges: {
+		type: Array,
+		default: () => [],
+	},
+	isLoading: {
+		type: Boolean,
+		default: false,
+	},
+	errorMessage: {
+		type: String,
+		default: '',
+	},
 })
 
-const judges = ref([])
-const isLoading = ref(true)
-const errorMessage = ref('')
-
 const emit = defineEmits(['add', 'edit', 'delete'])
-
-const tableJudges = computed(() => props.judges ?? judges.value)
-const tableIsLoading = computed(() => props.isLoading ?? isLoading.value)
-const tableErrorMessage = computed(() => props.errorMessage ?? errorMessage.value)
-
-async function loadJudges() {
-	if (props.judges !== undefined) return
-
-	isLoading.value = true
-	errorMessage.value = ''
-
-	try {
-		const response = await api.get('/judges')
-		const result = Array.isArray(response) ? response : response?.data
-		judges.value = Array.isArray(result) ? result : []
-	} catch (error) {
-		errorMessage.value = error?.message || 'Unable to load judges.'
-	} finally {
-		isLoading.value = false
-	}
-}
-
-onMounted(loadJudges)
 </script>
 
 <template>
@@ -56,14 +35,14 @@ onMounted(loadJudges)
 					<div class="header-cell" role="columnheader">Actions</div>
 				</div>
 
-				<div v-if="tableIsLoading" class="table-message" role="status">Loading judges...</div>
-				<div v-else-if="tableErrorMessage" class="table-message error-message" role="alert">
-					{{ tableErrorMessage }}
+				<div v-if="props.isLoading" class="table-message" role="status">Loading judges...</div>
+				<div v-else-if="props.errorMessage" class="table-message error-message" role="alert">
+					{{ props.errorMessage }}
 				</div>
-				<div v-else-if="tableJudges.length === 0" class="table-message">No judges found</div>
+				<div v-else-if="props.judges.length === 0" class="table-message">No judges found</div>
 
 				<div v-else class="judge-rows" role="rowgroup">
-					<div v-for="(judge, index) in tableJudges" :key="judge._id" class="judge-row" role="row">
+					<div v-for="(judge, index) in props.judges" :key="judge._id" class="judge-row" role="row">
 						<div class="judge-number" role="cell">{{ index + 1 }}</div>
 						<div class="judge-name" role="cell">{{ [judge.firstName, judge.lastName].filter(Boolean).join(' ') }}</div>
 						<div class="judge-username" role="cell">{{ judge.username }}</div>

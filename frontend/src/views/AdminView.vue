@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Sidebar from "@/components/Sidebar.vue";
-import JudgeManagementTable from "@/views/JudgeManagementTable.vue";
+import JudgeManagementView from "@/views/JudgeManagementView.vue";
 import starImage from "@/assets/img/star.png";
 
 const route = useRoute();
@@ -119,7 +119,7 @@ function handleLogout() {
           </header>
 
           <div v-if="route.path === '/admin/judges'" class="judge-management-content">
-            <JudgeManagementTable />
+            <JudgeManagementView />
           </div>
 
           <template v-else>

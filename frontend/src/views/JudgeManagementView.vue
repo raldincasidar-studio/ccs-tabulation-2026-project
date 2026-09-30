@@ -20,7 +20,10 @@ async function loadJudges() {
   try {
     const response = await api.get('/judges')
     const result = Array.isArray(response) ? response : response?.data
-    judges.value = Array.isArray(result) ? result : []
+    if (!Array.isArray(result)) {
+      throw new Error('Unexpected response while loading judges.')
+    }
+    judges.value = result
   } catch (error) {
     errorMessage.value = error?.message || 'Unable to load judges.'
   } finally {
