@@ -1,35 +1,42 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { ChevronRight } from "lucide-vue-next";
 import Sidebar from "@/components/Sidebar.vue";
 import starImage from "@/assets/img/star.png";
-import queenPhoto from "@/assets/img/queen.png";
-import cameraPlusImage from "@/assets/img/camm.svg";
+import {
+	createContestant,
+	getContestantGroups,
+	getContestants,
+	updateContestant,
+} from "@/services/contestantService";
 
 const router = useRouter();
-const categories = ["Mrs. Category", "Mr. Category"];
-const category = ref(categories[0]);
+const route = useRoute();
 const isMobile = ref(false);
 const isSidebarCollapsed = ref(false);
 const isMobileSidebarOpen = ref(false);
 const isMenuHidden = ref(false);
-const fileInput = ref(null);
-const saveMessage = ref("");
+const groups = ref([]);
+const loading = ref(true);
+const saving = ref(false);
+const error = ref("");
+const saveError = ref("");
+const imagePreviewFailed = ref(false);
+const contestantId = computed(() => typeof route.query.id === "string" ? route.query.id : "");
+const isEditing = computed(() => Boolean(contestantId.value));
 const contestant = ref({
-	number: 1,
-	name: "Japhet Bastillada",
-	label: "Panthers",
-	group: "Pageant Male",
-	isActive: true,
-	photo: queenPhoto,
+	name: "",
+	label: "",
+	group: "",
+	image: "",
 });
 
 const hasValidContestant = computed(() =>
-	Number(contestant.value.number) > 0 &&
 	contestant.value.name.trim() &&
 	contestant.value.label.trim() &&
-	contestant.value.group.trim(),
+	contestant.value.group &&
+	groups.value.some((group) => group._id === contestant.value.group),
 );
 
 function updateViewportState() {
@@ -53,27 +60,69 @@ function handleScrollState() {
 	isMenuHidden.value = scrollTop > 12;
 }
 
-function openFilePicker() {
-	fileInput.value?.click();
-}
+async function loadContestantForm() {
+	loading.value = true;
+	error.value = "";
+	try {
+		const groupResponse = await getContestantGroups();
+		groups.value = Array.isArray(groupResponse) ? groupResponse : groupResponse?.data ?? [];
 
-function handlePhotoChange(event) {
-	const file = event.target.files?.[0];
-	if (!file) return;
-	if (contestant.value.photo.startsWith("blob:")) {
-		URL.revokeObjectURL(contestant.value.photo);
+		if (isEditing.value) {
+			const contestantResponse = await getContestants();
+			const contestantList = Array.isArray(contestantResponse)
+				? contestantResponse
+				: contestantResponse?.data ?? [];
+			const existing = contestantList.find((item) => (item._id || item.id) === contestantId.value);
+			if (!existing) throw new Error("Contestant not found.");
+
+			contestant.value = {
+				name: existing.name || "",
+				label: existing.label || "",
+				group: typeof existing.group === "object" ? existing.group?._id || "" : existing.group || "",
+				image: existing.image || "",
+			};
+			imagePreviewFailed.value = false;
+		} else {
+			contestant.value.group = groups.value[0]?._id || "";
+		}
+	} catch (err) {
+		error.value = err?.message || "Unable to load contestant details.";
+	} finally {
+		loading.value = false;
 	}
-	contestant.value.photo = URL.createObjectURL(file);
-	saveMessage.value = "";
 }
 
-function saveContestant() {
+async function saveContestant() {
+	saveError.value = "";
 	if (!hasValidContestant.value) {
-		saveMessage.value = "Complete all fields and enter a valid number.";
+		saveError.value = "Enter a name and label, then select a contestant group.";
 		return;
 	}
-	contestant.value.number = Number(contestant.value.number);
-	saveMessage.value = "Contestant updated successfully!";
+
+	saving.value = true;
+	const payload = {
+		name: contestant.value.name.trim(),
+		label: contestant.value.label.trim(),
+		group: contestant.value.group,
+		image: contestant.value.image.trim(),
+	};
+
+	try {
+		if (isEditing.value) {
+			await updateContestant(contestantId.value, payload);
+		} else {
+			await createContestant(payload);
+		}
+		router.push("/admin/contestants");
+	} catch (err) {
+		saveError.value = err?.message || "Unable to save contestant.";
+	} finally {
+		saving.value = false;
+	}
+}
+
+function goBack() {
+	router.push("/admin/contestants");
 }
 
 function handleLogout() {
@@ -85,6 +134,7 @@ function handleLogout() {
 onMounted(() => {
 	updateViewportState();
 	handleScrollState();
+	loadContestantForm();
 	window.addEventListener("resize", updateViewportState);
 	window.addEventListener("scroll", handleScrollState, { passive: true });
 });
@@ -92,9 +142,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
 	window.removeEventListener("resize", updateViewportState);
 	window.removeEventListener("scroll", handleScrollState);
-	if (contestant.value.photo.startsWith("blob:")) {
-		URL.revokeObjectURL(contestant.value.photo);
-	}
 });
 </script>
 
@@ -135,90 +182,72 @@ onBeforeUnmount(() => {
 			<main class="main-content">
 				<div class="page-content">
 					<header class="management-banner">
-						<h1>CONTESTANT MANAGEMENT</h1>
+						<h1>{{ isEditing ? "EDIT CONTESTANT" : "ADD CONTESTANT" }}</h1>
 					</header>
 
 					<div class="category-control">
-						<label for="category">Select Category</label>
+						<label for="contestant-group">GROUP</label>
 						<div class="category-select-wrap">
-							<select id="category" v-model="category" aria-label="Select category">
-								<option v-for="item in categories" :key="item" :value="item">{{ item }}</option>
+							<select id="contestant-group" v-model="contestant.group" aria-label="Select contestant group">
+								<option disabled value="">Select a group</option>
+								<option v-for="group in groups" :key="group._id" :value="group._id">{{ group.name }}</option>
 							</select>
 							<ChevronRight :size="14" aria-hidden="true" />
 						</div>
 					</div>
+					<p v-if="!loading && !error && groups.length === 0" class="form-error" role="alert">
+						Create a contestant group before adding contestants.
+					</p>
 
-					<form class="contestant-editor" @submit.prevent="saveContestant">
+					<p v-if="loading" class="form-state" role="status">Loading contestant form...</p>
+					<div v-else-if="error" class="form-state form-error" role="alert">
+						<p>{{ error }}</p>
+						<button class="cancel-button" type="button" @click="goBack">Back to contestants</button>
+					</div>
+					<form v-else class="contestant-editor" @submit.prevent="saveContestant">
 						<section class="photo-column" aria-label="Contestant photo">
 							<div class="photo-frame">
 								<img
-									v-if="contestant.photo"
+									v-if="contestant.image && !imagePreviewFailed"
 									class="photo-preview"
-									:src="contestant.photo"
-									alt="Contestant preview"
+									:src="contestant.image"
+									:alt="`${contestant.name || 'Contestant'} preview`"
+									@error="imagePreviewFailed = true"
 								/>
+								<p v-else class="photo-placeholder">Image preview</p>
+							</div>
+							<div class="image-field field">
+								<label for="contestant-image">IMAGE URL</label>
 								<input
-									ref="fileInput"
-									class="file-input"
-									type="file"
-									accept="image/*"
-									@change="handlePhotoChange"
+									id="contestant-image"
+									v-model="contestant.image"
+									type="url"
+									placeholder="https://example.com/photo.jpg"
+									@input="imagePreviewFailed = false"
 								/>
-								<button class="upload-button" type="button" @click="openFilePicker">
-									<img class="upload-camera" :src="cameraPlusImage" alt="" />
-									<span>Upload Photo</span>
-								</button>
 							</div>
 						</section>
 
 						<section class="contestant-fields" aria-label="Contestant information">
-							<div class="number-field field">
-								<label for="contestant-number">NUMBER</label>
-								<input
-									id="contestant-number"
-									v-model="contestant.number"
-									type="number"
-									min="1"
-								/>
-							</div>
 							<div class="paired-fields">
 								<div class="field">
 									<label for="contestant-name">NAME</label>
-									<input id="contestant-name" v-model="contestant.name" type="text" />
+									<input id="contestant-name" v-model="contestant.name" type="text" required />
 								</div>
 								<div class="field">
 									<label for="contestant-label">LABEL</label>
-									<input id="contestant-label" v-model="contestant.label" type="text" />
+									<input id="contestant-label" v-model="contestant.label" type="text" required />
 								</div>
-							</div>
-							<div class="group-field field">
-								<label for="contestant-group">GROUP</label>
-								<input id="contestant-group" v-model="contestant.group" type="text" />
 							</div>
 							<div class="form-actions">
-								<div class="active-control">
-									<span>Is Active</span>
-									<button
-										class="active-toggle"
-										:class="{ on: contestant.isActive }"
-										type="button"
-										role="switch"
-										:aria-checked="contestant.isActive"
-										aria-label="Is Active"
-										@click="contestant.isActive = !contestant.isActive"
-									><i></i></button>
-								</div>
-								<button class="save-button" type="submit">
-									SAVE
+								<button class="cancel-button" type="button" @click="goBack">CANCEL</button>
+								<button class="save-button" type="submit" :disabled="saving || groups.length === 0">
+									{{ saving ? "SAVING..." : isEditing ? "SAVE CHANGES" : "CREATE CONTESTANT" }}
 								</button>
 							</div>
+							<p v-if="saveError" class="form-error" role="alert">{{ saveError }}</p>
 						</section>
 					</form>
-					<Teleport to="body">
-						<p v-if="saveMessage" class="save-message" :class="{ error: !hasValidContestant }" role="status">
-							{{ saveMessage }}
-						</p>
-					</Teleport>
 				</div>
 			</main>
 		</div>
@@ -323,16 +352,16 @@ onBeforeUnmount(() => {
 
 .category-select-wrap {
 	position: relative;
-	width: min(100%, 153px);
-	height: 24px;
-	margin-top: 1px;
+	width: min(100%, 260px);
+	height: 38px;
+	margin-top: 8px;
 }
 
 .category-select-wrap select {
 	width: 100%;
 	height: 100%;
 	appearance: none;
-	padding: 0 27px 0 12px;
+	padding: 0 34px 0 12px;
 	border: 0;
 	border-radius: 4px;
 	outline-color: #aaa8ff;
@@ -340,12 +369,12 @@ onBeforeUnmount(() => {
 	box-shadow: 0 2px 5px rgb(10 10 64 / 24%);
 	color: #fff;
 	font-family: "Poppins", sans-serif;
-	font-size: 12px;
+	font-size: 13px;
 }
 
 .category-select-wrap svg {
 	position: absolute;
-	top: 5px;
+	top: 12px;
 	right: 12px;
 	color: #fff;
 	pointer-events: none;
@@ -386,38 +415,11 @@ onBeforeUnmount(() => {
 	object-fit: contain;
 }
 
-.file-input {
-	display: none;
-}
-
-.upload-button {
-	position: absolute;
-	right: 32px;
-	bottom: 45px;
-	left: 31px;
-	display: flex;
-	height: 24px;
-	align-items: center;
-	justify-content: center;
-	padding: 0;
-	border: 0;
-	border-radius: 4px;
-	background: #1610a8;
-	color: #fff;
-	cursor: pointer;
+.photo-placeholder {
+	margin: 0;
+	color: #7770ed;
 	font-family: "Poppins", sans-serif;
-	font-size: 10px;
-	font-weight: 700;
-}
-
-.upload-button .upload-camera {
-	position: absolute;
-	top: -28px;
-	left: 50%;
-	width: 25px;
-	height: 25px;
-	filter: drop-shadow(0 0 2px rgb(80 74 255 / 35%));
-	transform: translateX(-50%);
+	font-size: 13px;
 }
 
 .contestant-fields {
@@ -426,11 +428,6 @@ onBeforeUnmount(() => {
 	grid-template-columns: minmax(0, 1fr);
 	row-gap: 0;
 	margin-top: 6px;
-}
-
-.number-field {
-	width: 70px;
-	margin-left: 4px;
 }
 
 .field input {
@@ -455,10 +452,8 @@ onBeforeUnmount(() => {
 	outline-color: #7770ed;
 }
 
-.number-field input {
-	padding: 0 8px;
-	font-weight: 700;
-	text-align: center;
+.image-field {
+	margin-top: 16px;
 }
 
 .paired-fields {
@@ -468,58 +463,38 @@ onBeforeUnmount(() => {
 	margin-top: 19px;
 }
 
-.group-field {
-	width: min(100%, calc((100% - 41px) / 2));
-	margin-top: 16px;
-}
-
 .form-actions {
 	display: flex;
-	align-items: flex-end;
-	gap: clamp(18px, 5vw, 110px);
+	align-items: center;
+	justify-content: flex-end;
+	gap: 12px;
 	margin-top: 25px;
 	flex-wrap: wrap;
 }
 
-.active-control {
-	display: flex;
-	min-width: 63px;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 7px;
-	color: #080808;
-	font-family: "Poppins", sans-serif;
-	font-size: 10px;
-	font-weight: 700;
-	line-height: 12px;
-}
-
-.active-toggle {
-	position: relative;
-	width: 62px;
-	height: 26px;
-	padding: 0;
-	border: 0;
-	border-radius: 999px;
-	background: linear-gradient(#eceeef, #c7c9ca);
-	box-shadow: inset 0 1px 2px rgb(0 0 0 / 8%);
+.cancel-button {
+	min-height: 35px;
+	padding: 0 16px;
+	border: 1px solid #08065a;
+	border-radius: 5px;
+	background: transparent;
+	color: #08065a;
 	cursor: pointer;
+	font-family: "Poppins", sans-serif;
+	font-size: 11px;
+	font-weight: 700;
 }
 
-.active-toggle i {
-	position: absolute;
-	top: 5px;
-	left: 4px;
-	width: 17px;
-	height: 16px;
-	border-radius: 50%;
-	background: #8e9191;
-	transition: left 0.18s ease, background 0.18s ease;
+.form-state,
+.form-error {
+	margin: 18px 6px 0;
+	color: #687394;
+	font-family: "Poppins", sans-serif;
+	font-size: 13px;
 }
 
-.active-toggle.on i {
-	left: 34px;
-	background: #35b900;
+.form-error {
+	color: #a11b32;
 }
 
 .save-button {
@@ -540,23 +515,6 @@ onBeforeUnmount(() => {
 	cursor: not-allowed;
 	opacity: 0.55;
 }
-
-.save-message {
-	position: fixed;
-	right: 24px;
-	bottom: 24px;
-	z-index: 40;
-	margin: 0;
-	padding: 10px 16px;
-	border-radius: 6px;
-	background: #fff;
-	box-shadow: 0 4px 16px rgb(8 6 90 / 16%);
-	color: #218500;
-	font-family: "Poppins", sans-serif;
-	font-size: 12px;
-}
-
-.save-message.error { color: #a11b32; }
 
 .mobile-menu {
 	display: none;
@@ -579,8 +537,7 @@ onBeforeUnmount(() => {
 	}
 	.contestant-editor .photo-frame { width: 250px; }
 	.contestant-editor .paired-fields { gap: 24px; }
-	.contestant-editor .group-field { width: calc((100% - 24px) / 2); }
-	.contestant-editor .form-actions { gap: 40px; }
+	.contestant-editor .form-actions { gap: 12px; }
 }
 
 @media (max-width: 767px) {
@@ -636,21 +593,13 @@ onBeforeUnmount(() => {
 		row-gap: 0;
 		padding-top: 0;
 	}
-	.number-field {
-		width: 100%;
-		max-width: 120px;
-		margin-left: 0;
-	}
 	.paired-fields {
 		grid-template-columns: 1fr;
 		gap: 18px;
 		margin-top: 18px;
 	}
-	.group-field {
-		width: 100%;
-	}
 	.form-actions {
-		justify-content: space-between;
+		justify-content: flex-end;
 		gap: 12px;
 		margin-top: 24px;
 		flex-wrap: wrap;
@@ -702,16 +651,11 @@ onBeforeUnmount(() => {
 		width: 100%;
 		height: 250px;
 	}
-	.upload-button {
-		right: 16px;
-		left: 16px;
-		bottom: 18px;
-	}
 	.form-actions {
 		align-items: stretch;
 	}
 	.save-button {
-		width: 100%;
+		width: min(100%, 220px);
 		max-width: none;
 	}
 }

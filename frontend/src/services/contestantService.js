@@ -11,6 +11,11 @@ export async function getContestants(groupId = null) {
   return response?.data ?? response;
 }
 
+export async function getContestantGroups() {
+  const response = await api.get('/contestant-groups');
+  return response?.data ?? response;
+}
+
 export async function createContestant(contestantData) {
   const response = await api.post('/contestants', contestantData);
   return response?.data ?? response;

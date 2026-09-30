@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import Sidebar from '@/components/Sidebar.vue';
 import starImage from '@/assets/img/star.png';
-import { getContestants } from '@/services/contestantService';
+import { deleteContestant, getContestants } from '@/services/contestantService';
 
 const router = useRouter();
 const isSidebarCollapsed = ref(false);
@@ -12,6 +12,7 @@ const isMobile = ref(false);
 const contestants = ref([]);
 const loading = ref(true);
 const error = ref('');
+const deletingContestantId = ref('');
 
 function updateViewportState() {
   const mobileMode = window.innerWidth < 768;
@@ -60,6 +61,32 @@ onBeforeUnmount(() => {
 
 function goToAddContestant() {
   router.push('/admin/add-contestant');
+}
+
+function goToEditContestant(contestant) {
+  const id = contestant._id || contestant.id;
+  if (!id) {
+    error.value = 'This contestant cannot be edited because it has no ID.';
+    return;
+  }
+
+  router.push({ path: '/admin/add-contestant', query: { id } });
+}
+
+async function removeContestant(contestant) {
+  const id = contestant._id || contestant.id;
+  if (!id || !window.confirm(`Delete ${contestant.name}? This cannot be undone.`)) return;
+
+  deletingContestantId.value = id;
+  error.value = '';
+  try {
+    await deleteContestant(id);
+    contestants.value = contestants.value.filter((item) => (item._id || item.id) !== id);
+  } catch (err) {
+    error.value = err?.message || 'Unable to delete contestant.';
+  } finally {
+    deletingContestantId.value = '';
+  }
 }
 
 function handleLogout() {
@@ -167,8 +194,15 @@ function handleLogout() {
                     <td>{{ contestant.label }}</td>
                     <td>{{ getGroupName(contestant.group) }}</td>
                     <td class="row-actions">
-                      <button type="button">Edit</button>
-                      <button class="delete-action" type="button">Delete</button>
+                      <button type="button" @click="goToEditContestant(contestant)">Edit</button>
+                      <button
+                        class="delete-action"
+                        type="button"
+                        :disabled="deletingContestantId === (contestant._id || contestant.id)"
+                        @click="removeContestant(contestant)"
+                      >
+                        {{ deletingContestantId === (contestant._id || contestant.id) ? 'Deleting...' : 'Delete' }}
+                      </button>
                     </td>
                   </tr>
                 </tbody>
