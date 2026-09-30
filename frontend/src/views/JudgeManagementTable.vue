@@ -1,29 +1,20 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import api from '@/services/api'
-
-const judges = ref([])
-const isLoading = ref(true)
-const errorMessage = ref('')
+const props = defineProps({
+	judges: {
+		type: Array,
+		default: () => [],
+	},
+	isLoading: {
+		type: Boolean,
+		default: false,
+	},
+	errorMessage: {
+		type: String,
+		default: '',
+	},
+})
 
 const emit = defineEmits(['add', 'edit', 'delete'])
-
-async function loadJudges() {
-	isLoading.value = true
-	errorMessage.value = ''
-
-	try {
-		const response = await api.get('/judges')
-		const result = Array.isArray(response) ? response : response?.data
-		judges.value = Array.isArray(result) ? result : []
-	} catch (error) {
-		errorMessage.value = error?.message || 'Unable to load judges.'
-	} finally {
-		isLoading.value = false
-	}
-}
-
-onMounted(loadJudges)
 </script>
 
 <template>
