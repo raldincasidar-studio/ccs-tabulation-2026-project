@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import Sidebar from "@/components/Sidebar.vue";
+import api from "@/services/api";
 import starImage from "@/assets/img/star.png";
 
 const router = useRouter();
@@ -9,6 +10,13 @@ const isSidebarCollapsed = ref(false);
 const isMobileSidebarOpen = ref(false);
 const isMobile = ref(false);
 const isSystemOn = ref(false);
+const statistics = ref({ judges: null, contestants: null, categories: null });
+const statisticsErrors = ref({ judges: "", contestants: "", categories: "" });
+const liveCategory = ref(null);
+const activeContestant = ref(null);
+const liveGroups = ref([]);
+const isLiveLoading = ref(true);
+const liveError = ref("");
 
 function updateViewportState() {
   const mobileMode = window.innerWidth < 768;
@@ -25,6 +33,7 @@ function updateViewportState() {
 
 onMounted(() => {
   updateViewportState();
+  loadDashboardData();
   window.addEventListener("resize", updateViewportState);
 });
 
@@ -40,7 +49,143 @@ const quickActions = [
   "Generate Reports",
 ];
 
-const contestants = ["Japhet Bastillada", "Leonesa Salmorin", "Papap dol", "Papap dol"];
+function responseData(response, description) {
+  if (response?.success !== true) throw new Error(`Invalid ${description} response`);
+  return response.data;
+}
+
+async function loadDashboardData() {
+  isLiveLoading.value = true;
+  liveError.value = "";
+
+  const [judgesResult, contestantsResult, categoriesResult, configurationResult] =
+    await Promise.allSettled([
+      api.get("/judges"),
+      api.get("/contestants"),
+      api.get("/categories"),
+      api.get("/configuration"),
+    ]);
+
+  for (const [key, result] of [
+    ["judges", judgesResult],
+    ["contestants", contestantsResult],
+    ["categories", categoriesResult],
+  ]) {
+    if (result.status !== "fulfilled") {
+      statisticsErrors.value[key] = result.reason?.message || "Unable to load data";
+      continue;
+    }
+
+    try {
+      const records = responseData(result.value, key);
+      if (!Array.isArray(records)) throw new Error(`Invalid ${key} response`);
+      statistics.value[key] = records.length;
+      statisticsErrors.value[key] = "";
+    } catch (error) {
+      statisticsErrors.value[key] = error.message;
+    }
+  }
+
+  let contestantRecords = [];
+  if (contestantsResult.status === "fulfilled") {
+    try {
+      contestantRecords = responseData(contestantsResult.value, "contestants");
+      if (!Array.isArray(contestantRecords)) throw new Error("Invalid contestants response");
+    } catch (error) {
+      liveError.value = error.message;
+    }
+  } else {
+    liveError.value = contestantsResult.reason?.message || "Unable to load contestants";
+  }
+
+  if (configurationResult.status === "fulfilled") {
+    try {
+      const configuration = responseData(configurationResult.value, "configuration");
+      liveCategory.value = configuration?.liveStatus?.categoryActive || null;
+      activeContestant.value = configuration?.liveStatus?.contestantActive || null;
+    } catch (error) {
+      liveError.value = liveError.value || error.message;
+    }
+  } else {
+    liveError.value = liveError.value || configurationResult.reason?.message || "Unable to load live status";
+  }
+
+  const groupsById = new Map();
+  for (const contestant of contestantRecords) {
+    const group = contestant.group;
+    const groupId = typeof group === "object" ? group?._id : group;
+    const groupName = typeof group === "object" ? group?.name : "";
+    const groupKey = groupId || groupName;
+    if (!groupKey) continue;
+
+    if (!groupsById.has(groupKey)) {
+      groupsById.set(groupKey, { id: groupId, name: groupName, contestants: [] });
+    }
+    groupsById.get(groupKey).contestants.push(contestant);
+  }
+
+  const currentContestant = activeContestant.value;
+  if (currentContestant?._id && !contestantRecords.some((item) => item._id === currentContestant._id)) {
+    const groupKey = currentContestant.group || currentContestant._id;
+    if (!groupsById.has(groupKey)) {
+      groupsById.set(groupKey, { id: null, name: currentContestant.group, contestants: [] });
+    }
+    groupsById.get(groupKey).contestants.push(currentContestant);
+  }
+
+  const groups = [...groupsById.values()];
+  const rankingResults = await Promise.allSettled(
+    groups.map((group) =>
+      group.id
+        ? api.get("/reports/final-rankings", { params: { groupId: group.id } })
+        : Promise.reject(new Error("Group ID unavailable for rankings")),
+    ),
+  );
+
+  liveGroups.value = groups.map((group, index) => {
+    let rankings = [];
+    let rankingsUnavailable = rankingResults[index].status !== "fulfilled";
+    const result = rankingResults[index];
+    if (result.status === "fulfilled") {
+      try {
+        rankings = responseData(result.value, "final rankings")?.rankings;
+        if (!Array.isArray(rankings)) throw new Error("Invalid final rankings response");
+        rankingsUnavailable = false;
+      } catch {
+        rankings = [];
+        rankingsUnavailable = true;
+      }
+    }
+
+    const rankingsByContestant = new Map(rankings.map((ranking) => [ranking.contestantId, ranking]));
+    const contestantsInGroup = group.contestants.map((contestant) => {
+      const isActiveContestant = contestant._id === currentContestant?._id;
+      const ranking = rankingsByContestant.get(contestant._id);
+      return {
+        ...contestant,
+        name: isActiveContestant ? currentContestant.name : contestant.name,
+        image: isActiveContestant ? currentContestant.image : contestant.image,
+        label: isActiveContestant ? currentContestant.label : contestant.label,
+        group: isActiveContestant ? currentContestant.group : group.name,
+        rank: ranking?.rank,
+        score: ranking?.final_candidate_score,
+        rankingsUnavailable,
+      };
+    });
+
+    contestantsInGroup.sort((first, second) => {
+      if (first.rank == null) return second.rank == null ? 0 : 1;
+      if (second.rank == null) return -1;
+      return first.rank - second.rank;
+    });
+    const activeGroupName = contestantsInGroup.some((contestant) => contestant._id === currentContestant?._id)
+      ? currentContestant?.group
+      : null;
+    return { ...group, name: activeGroupName || group.name, contestants: contestantsInGroup };
+  });
+
+  isLiveLoading.value = false;
+}
 
 function toggleSystemStatus() {
   isSystemOn.value = !isSystemOn.value;
@@ -116,16 +261,16 @@ function handleLogout() {
 
           <section class="statistics" aria-label="Dashboard statistics">
             <article class="stat-card">
-              <strong>5</strong>
+              <strong :title="statisticsErrors.judges">{{ statistics.judges ?? "—" }}</strong>
               <span>JUDGES</span>
             </article>
             <article class="stat-card">
-              <strong>5</strong>
+              <strong :title="statisticsErrors.contestants">{{ statistics.contestants ?? "—" }}</strong>
               <span>CONTESTANTS</span>
             </article>
             <article class="stat-card">
-              <strong>2</strong>
-              <span>COMPETITION</span>
+              <strong :title="statisticsErrors.categories">{{ statistics.categories ?? "—" }}</strong>
+              <span>CATEGORIES</span>
             </article>
           </section>
 
@@ -142,34 +287,57 @@ function handleLogout() {
             </section>
 
             <section class="live-scores" aria-label="Live contestant scores">
-              <h2 class="live-heading"><span></span>LIVE</h2>
+              <h2 class="live-heading">
+                <span></span>LIVE<span v-if="liveCategory?.name"> · {{ liveCategory.name }}</span>
+              </h2>
               <div class="contestant-groups">
                 <section
-                  v-for="group in ['Mrs.', 'Mr.']"
-                  :key="group"
+                  v-for="group in liveGroups"
+                  :key="group.id || group.name"
                   class="contestant-section"
-                  :aria-label="`${group} contestants`"
+                  :aria-label="`${group.name} contestants`"
                 >
-                  <h3>{{ group }}</h3>
+                  <h3>{{ group.name }}</h3>
                   <article
-                    v-for="(name, index) in contestants"
-                    :key="`${group}-${index}`"
+                    v-for="contestant in group.contestants"
+                    :key="contestant._id"
                     class="contestant-row"
                   >
                     <div class="contestant-photo" aria-hidden="true">
-                      <span></span>
-                      <i></i>
+                      <img
+                        v-if="contestant.image"
+                        :src="contestant.image"
+                        alt=""
+                        @error="contestant.image = ''"
+                        style="width: 100%; height: 100%; object-fit: cover"
+                      />
+                      <template v-else>
+                        <span></span>
+                        <i></i>
+                      </template>
                     </div>
                     <div class="contestant-details">
                       <div class="contestant-line">
-                        <span>{{ name }}</span>
-                        <strong>0% Votes</strong>
+                        <span>
+                          {{ contestant.name }}<template v-if="contestant.label"> · {{ contestant.label }}</template>
+                        </span>
+                        <strong>
+                          <template v-if="contestant.rankingsUnavailable">UNAVAILABLE</template>
+                          <template v-else-if="contestant.rank != null">#{{ contestant.rank }} · {{ contestant.score ?? "—" }}</template>
+                          <template v-else>—</template>
+                        </strong>
                       </div>
                       <div class="vote-track" aria-hidden="true">
-                        <span :class="`progress-fill-${index + 1}`"></span>
+                        <span :style="{ width: contestant.score == null ? '0%' : `${Math.max(0, Math.min(100, contestant.score))}%` }"></span>
                       </div>
                     </div>
                   </article>
+                </section>
+                <section v-if="isLiveLoading" class="contestant-section">
+                  <h3>Loading live results...</h3>
+                </section>
+                <section v-else-if="liveGroups.length === 0" class="contestant-section">
+                  <h3>{{ liveError || "No live contestants available" }}</h3>
                 </section>
               </div>
             </section>
@@ -558,11 +726,6 @@ function handleLogout() {
   border-radius: inherit;
   background: linear-gradient(90deg, #0f2c88 0%, #0c1d72 100%);
 }
-
-.progress-fill-1 { width: 30%; }
-.progress-fill-2 { width: 66%; }
-.progress-fill-3,
-.progress-fill-4 { width: 92%; }
 
 .mobile-hamburger {
   position: fixed;
