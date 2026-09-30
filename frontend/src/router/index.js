@@ -10,11 +10,45 @@ import AddContestantManagement from '@/views/AddContestantManagement.vue';
 import ConfigurationView from '@/views/ConfigurationView.vue';
 import AddContestantGroupView from '@/views/AddContestantGroupView.vue';
 import AddCategoriesView from '@/views/AddCategoriesView.vue';
+import ReportView from '@/views/ReportView.vue';
 
 const routes = [
   {
     path: '/',
-    redirect: '/login',
+    redirect: '/reports',
+  },
+  {
+    path: '/reports',
+    name: 'reports',
+    component: ReportView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/reports',
+    name: 'admin-reports',
+    redirect: { name: 'reports' },
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/configurations',
+    name: 'configurations',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/management',
+    name: 'management',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/contestants',
+    name: 'contestants',
+    redirect: '/dashboard',
   },
   {
     path: '/login',
@@ -25,8 +59,7 @@ const routes = [
   {
     path: '/admin',
     name: 'admin',
-    component: AdminView,
-    meta: { requiresAuth: true, role: 'Admin' },
+    redirect: '/dashboard',
   },
   {
     path: '/admin/add-contestant',

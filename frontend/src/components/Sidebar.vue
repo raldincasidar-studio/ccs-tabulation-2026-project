@@ -44,7 +44,7 @@ const navigation = [
   { label: "CONFIGURATIONS", icon: Settings2, route: "/admin/configurations" },
   { label: "JUDGES", icon: BriefcaseBusiness, route: "/admin" },
   { label: "CONTESTANTS", icon: Users, route: "/admin/add-contestant" },
-  { label: "REPORTS", icon: BarChart3, route: "/admin" },
+  { label: "REPORTS", icon: BarChart3, route: "/reports" },
 ];
 
 function handleNavigation(item) {
@@ -369,6 +369,15 @@ function handleLogout() {
 .sidebar-link:not(.active):hover,
 .sign-out:hover {
   background: rgb(255 255 255 / 10%);
+}
+
+.no-op-link {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  justify-content: flex-start;
+  appearance: none;
 }
 
 .sign-out {
