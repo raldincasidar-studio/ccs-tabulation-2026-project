@@ -23,7 +23,7 @@
         <span>Go back</span>
       </button>
 
-      <!-- Live Mode Toggle (Exact Figma Colors & Gradient) -->
+      <!-- Live Mode Toggle -->
       <div class="flex items-center gap-3">
         <button 
           @click="toggleLiveMode" 
@@ -35,7 +35,7 @@
               : 'linear-gradient(90deg, #64748b 0%, #0f172a 100%)'
           }"
         >
-          <!-- Red Ball Indicator (#E00000) -->
+          <!-- Red Ball Indicator -->
           <div 
             class="w-[20px] h-[20px] rounded-full transition-all duration-300 flex items-center justify-center"
             :class="isLiveMode 
@@ -55,13 +55,14 @@
     <!-- Main Content Area -->
     <main class="relative z-10 flex-1 flex flex-col items-center justify-start px-4 pb-16 max-w-6xl mx-auto w-full">
       
-      <!-- Welcome Title Image -->
-      <div class="mt-8 md:mt-12 lg:mt-14 mb-4 flex justify-center items-center w-full">
-        <img 
-          :src="welcomeTitle" 
-          alt="Welcome to Mr and Ms 2026" 
-          class="w-[460px] sm:w-[620px] md:w-[740px] h-auto object-contain drop-shadow-[0_0_25px_rgba(56,189,248,0.5)]" 
-        />
+      <!-- Prominent Welcome Title -->
+      <div class="mt-8 md:mt-12 mb-6 flex flex-col justify-center items-center w-full text-center">
+        <span class="welcome-subtext font-croparo text-sm sm:text-lg md:text-xl font-bold tracking-[0.45em] uppercase">
+          WELCOME
+        </span>
+        <h1 class="welcome-judge-title font-croparo text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-wider mt-1">
+          {{ judgeName }}
+        </h1>
       </div>
 
       <!-- Loading State -->
@@ -79,7 +80,7 @@
           class="relative w-[246px] h-[184px] cursor-pointer transition-transform duration-200 hover:scale-[1.03] flex flex-col justify-end items-center group"
           :class="{ 'md:col-start-2': index === 6 }"
         >
-          <!-- Card Background Box (Clipped with 12px radius) -->
+          <!-- Card Background Box -->
           <div 
             class="absolute inset-0 rounded-[12px] overflow-hidden border border-blue-400/40 shadow-[0_0_18px_rgba(2,62,198,0.35)]"
             :style="{ background: 'linear-gradient(180deg, #023EC6 0%, #060071 65%)' }"
@@ -100,7 +101,7 @@
             LIVE
           </div>
 
-          <!-- Model / Contestant Cutout -->
+          <!-- Logo / Model Cutout -->
           <img 
             :src="cat.image" 
             :alt="cat.name"
@@ -108,14 +109,13 @@
             class="absolute -top-11 h-[195px] max-w-[170px] object-contain pointer-events-none z-20 drop-shadow-[0_10px_16px_rgba(0,0,0,0.85)] transition-transform duration-300 group-hover:scale-105"
           />
 
-          <!-- Figma Pill Badge Container with Accurate Yellow -> White -> Royal Blue Gradient -->
+          <!-- Soothing Blue Gradient Pill Badge -->
           <div 
-            class="badge-pill relative z-30 w-[94%] min-h-[40px] max-h-[50px] mb-2.5 px-3 py-1 rounded-full border-[1.5px] border-yellow-200/90 flex items-center justify-center text-center overflow-hidden transition-all shadow-[0_0_14px_rgba(243,255,43,0.45)]"
+            class="badge-pill relative z-30 w-[94%] min-h-[42px] max-h-[52px] mb-2.5 px-3 py-1.5 rounded-full border border-cyan-400/60 flex items-center justify-center text-center overflow-hidden transition-all shadow-[0_0_15px_rgba(14,165,233,0.35)]"
             :style="{
-              background: 'linear-gradient(90deg, #F3FF2B 0%, #FFFFFF 26%, #0344CE 76%, #001E82 100%)'
+              background: 'linear-gradient(90deg, #021B79 0%, #0B4ED4 50%, #021B79 100%)'
             }"
           >
-            <!-- Title with dynamic font sizing and shadow to prevent cutoff & ensure contrast -->
             <span 
               class="badge-text font-croparo font-black uppercase text-white select-none text-center"
               :class="getTitleClasses(cat.name)"
@@ -135,33 +135,45 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronLeft } from 'lucide-vue-next'
-import { logout } from '../services/authService.js'
-import { judgeService } from '../services/judgeService.js'
+import { logout, getCurrentUser } from '@/services/authService.js'
+import { judgeService } from '@/services/judgeService.js'
 
 // Image Asset Imports
 import starBg from '@/assets/img/star-bg.png'
-import welcomeTitle from '@/assets/img/judge-welcome.png'
 import starCategoryBg from '@/assets/img/star-bg-category.png'
+import mrMsLogo from '@/assets/img/mr-ms-css-logo.png'
 
 const router = useRouter()
 const isLiveMode = ref(true)
 const isLoading = ref(true)
+const judgeName = ref('JUDGE')
 
-// Default fallback cutouts
-const fallbackCutoutGown = 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?w=300&auto=format&fit=crop&q=80'
-const fallbackCutoutSchool = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80'
-
+// Initialize categories with logo
 const categories = ref([
-  { id: 'playsuit', name: 'PLAYSUIT', image: fallbackCutoutGown, isCurrentlyLive: false },
-  { id: 'uniform-1', name: 'UNIFORM', image: fallbackCutoutSchool, isCurrentlyLive: false },
-  { id: 'uniform-2', name: 'UNIFORM', image: fallbackCutoutSchool, isCurrentlyLive: false },
-  { id: 'prod-no', name: 'PRODUCTION NO', image: fallbackCutoutGown, isCurrentlyLive: false },
-  { id: 'advocacy', name: 'ADVOCACY', image: fallbackCutoutSchool, isCurrentlyLive: false },
-  { id: 'q-and-a', name: 'Q AND A', image: fallbackCutoutSchool, isCurrentlyLive: false },
-  { id: 'qa-final', name: 'Q & A FINAL', image: fallbackCutoutSchool, isCurrentlyLive: false }
+  { id: 'playsuit', name: 'PLAYSUIT', image: mrMsLogo, isCurrentlyLive: false },
+  { id: 'uniform-1', name: 'UNIFORM', image: mrMsLogo, isCurrentlyLive: false },
+  { id: 'uniform-2', name: 'UNIFORM', image: mrMsLogo, isCurrentlyLive: false },
+  { id: 'prod-no', name: 'PRODUCTION NO', image: mrMsLogo, isCurrentlyLive: false },
+  { id: 'advocacy', name: 'ADVOCACY', image: mrMsLogo, isCurrentlyLive: false },
+  { id: 'q-and-a', name: 'Q AND A', image: mrMsLogo, isCurrentlyLive: false },
+  { id: 'qa-final', name: 'Q & A FINAL', image: mrMsLogo, isCurrentlyLive: false }
 ])
 
-// Dynamic responsive classes for long vs short titles
+// Load Judge Name from login session
+const loadJudgeInfo = () => {
+  try {
+    const user = typeof getCurrentUser === 'function' ? getCurrentUser() : null
+    const stored = user || JSON.parse(localStorage.getItem('user') || '{}')
+    if (stored) {
+      const fullName = [stored.firstName, stored.lastName].filter(Boolean).join(' ')
+      judgeName.value = (fullName || stored.name || stored.username || 'JUDGE').toUpperCase()
+    }
+  } catch (err) {
+    console.warn('Could not read user info:', err)
+  }
+}
+
+// Dynamic font sizing
 const getTitleClasses = (name = '') => {
   const len = name.length
   if (len > 18) {
@@ -186,7 +198,7 @@ const loadDashboardData = async () => {
       categories.value = fetchedCategories.map((item, idx) => ({
         ...item,
         name: (item.name || item.title || `Category ${idx + 1}`).toUpperCase(),
-        image: item.image || (idx % 3 === 0 ? fallbackCutoutGown : fallbackCutoutSchool),
+        image: (item.image && !item.image.includes('example.com')) ? item.image : mrMsLogo,
         isCurrentlyLive: false
       }))
     }
@@ -202,12 +214,14 @@ const loadDashboardData = async () => {
         const isMatch = activeCategory && (
           cat._id === activeCategory._id || 
           cat.id === activeCategory._id || 
-          cat.name.toLowerCase() === activeCategory.name?.toLowerCase()
+          cat.name?.toLowerCase() === activeCategory.name?.toLowerCase()
         )
 
         return {
           ...cat,
-          image: isMatch && activeContestant.image ? activeContestant.image : cat.image,
+          image: isMatch && activeContestant.image && !activeContestant.image.includes('example.com')
+            ? activeContestant.image 
+            : (cat.image || mrMsLogo),
           isCurrentlyLive: !!isMatch
         }
       })
@@ -222,18 +236,13 @@ const loadDashboardData = async () => {
 }
 
 const handleImageError = (cat) => {
-  cat.image = fallbackCutoutSchool
+  cat.image = mrMsLogo
 }
 
 const toggleLiveMode = () => {
-  // When switching Live Mode ON, navigate to the Live Page
-  router.push({
-    name: 'JudgeLive',
-    query: { category: categoryDisplayName.value }
-  })
+  router.push({ name: 'JudgeLive' })
 }
 
-// Redirects to Judge Category Vote / Scoresheet page with the selected category
 const selectCategory = (category) => {
   const catName = category.name || category.title || 'PLAYSUIT'
   const categoryIdentifier = category.id || category._id || catName.toLowerCase().replace(/\s+/g, '-')
@@ -251,17 +260,38 @@ const handleGoBack = async () => {
 }
 
 onMounted(() => {
+  loadJudgeInfo()
   loadDashboardData()
 })
 </script>
 
 <style scoped>
-/* High contrast shadow & subtle stroke to keep pure white text legible on yellow & dark blue */
-.badge-text {
+/* Prominent Glowing Welcome Subtitle */
+.welcome-subtext {
+  color: #38bdf8;
+  letter-spacing: 0.4em;
   text-shadow: 
-    0 1px 2px rgba(0, 0, 0, 0.95),
-    0 0 5px rgba(2, 30, 110, 0.9),
-    0 0 10px rgba(0, 15, 60, 0.8);
-  -webkit-text-stroke: 0.35px rgba(0, 0, 0, 0.4);
+    0 0 8px rgba(56, 189, 248, 0.9),
+    0 0 16px rgba(14, 165, 233, 0.6);
+}
+
+/* Neon Judge Name */
+.welcome-judge-title {
+  color: #ffffff;
+  text-shadow: 
+    0 0 12px rgba(56, 189, 248, 0.9),
+    0 0 25px rgba(2, 62, 198, 0.8),
+    0 0 45px rgba(2, 62, 198, 0.5);
+  letter-spacing: 0.14em;
+  -webkit-text-stroke: 1px rgba(56, 189, 248, 0.7);
+}
+
+/* Softer & legible Pill Badge Text */
+.badge-text {
+  color: #ffffff;
+  letter-spacing: 0.08em;
+  text-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.9),
+    0 0 8px rgba(56, 189, 248, 0.7);
 }
 </style>

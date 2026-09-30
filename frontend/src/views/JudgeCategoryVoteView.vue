@@ -1,11 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ChevronLeft } from 'lucide-vue-next'
 import { judgeService } from '@/services/judgeService'
 import { getCurrentUser } from '@/services/authService'
 import starBg from '@/assets/img/star-bg.png'
-import mrMsLogo from '@/assets/img/logo.png.png'
+import mrMsLogo from '@/assets/img/mr-ms-css-logo.png'
 
 const router = useRouter()
 const route = useRoute()
@@ -19,14 +19,6 @@ const savingCandidateId = ref(null)
 const selectedCategory = ref({ _id: '', name: 'PLAYSUIT' })
 const criteriaList = ref([])
 const candidates = ref([])
-
-// Dynamic Contestant Groups loaded from API
-const filterTabs = ref([
-  { id: 'all', label: 'None (Show All)' }
-])
-
-// Auto-sync polling timer
-let autoSyncTimer = null
 
 // Current Judge Info
 const currentUser = getCurrentUser()
@@ -67,6 +59,13 @@ const fallbackAvatars = [
   'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=300&auto=format&fit=crop&q=80',
 ]
 
+const filterTabs = [
+  { id: 'all', label: 'None (Show All)' },
+  { id: 'Pageant Male', label: 'Pageant Male' },
+  { id: 'Pageant Female', label: 'Pageant Female' },
+  { id: 'Musical Extravaganza', label: 'Musical Extravaganza' },
+]
+
 function isHexId(val) {
   return /^[0-9a-fA-F]{24}$/.test(String(val))
 }
@@ -86,168 +85,35 @@ const categoryDisplayName = computed(() => {
   return 'PLAYSUIT'
 })
 
-// ── Resilient Filter Matching ─────────────────────────────────────────
+// ── Filter Contestants by Group ───────────────────────────────────────
 const filteredCandidates = computed(() => {
   if (activeFilter.value === 'all') return candidates.value
-
-  const filterTarget = String(activeFilter.value).trim().toLowerCase()
-  const activeTab = filterTabs.value.find(t => t.id === activeFilter.value)
-  const tabName = (activeTab?.name || activeTab?.label || '').trim().toLowerCase()
-  const tabId = (activeTab?.groupId || '').trim().toLowerCase()
-
   return candidates.value.filter(c => {
-    const raw = c.rawGroup || c.group
-    const candidateName = (typeof raw === 'object' ? (raw?.name || '') : String(raw || '')).trim().toLowerCase()
-    const candidateId = (typeof raw === 'object' ? (raw?._id || raw?.id || '') : String(raw || '')).trim().toLowerCase()
-
-    return (
-      candidateName === filterTarget ||
-      candidateId === filterTarget ||
-      (tabName && candidateName === tabName) ||
-      (tabId && candidateId === tabId)
-    )
+    const gName = typeof c.group === 'object' ? c.group?.name : c.group
+    return gName?.toLowerCase() === activeFilter.value.toLowerCase()
   })
 })
 
 const toggleLiveMode = () => {
+  // When switching Live Mode ON, navigate to the Live Page
   router.push({
     name: 'JudgeLive',
     query: { category: categoryDisplayName.value }
   })
 }
-
-// ── 1. Fetch Dynamic Groups ───────────────────────────────────────────
-async function fetchContestantGroups() {
-  try {
-    const groups = await judgeService.getContestantGroups()
-    if (Array.isArray(groups) && groups.length > 0) {
-      filterTabs.value = [
-        { id: 'all', label: 'None (Show All)' },
-        ...groups.map(g => ({
-          id: g.name || g._id,
-          groupId: g._id,
-          name: g.name,
-          label: g.name || 'Group'
-        }))
-      ]
-    }
-  } catch (err) {
-    console.warn('Could not fetch contestant groups dynamically:', err)
-  }
-}
-
-// ── 2. Background Auto-Refetch (In-Place Score Sync) ──────────────────
-async function loadCandidatesAndScores() {
-  try {
-    const serverScoresMap = {}
-
-    // A. Fetch Live Sheet (Module 7.1)
-    let liveSheetData = null
-    try {
-      const liveRes = await judgeService.getLiveSheet()
-      liveSheetData = liveRes?.data || liveRes
-      if (liveSheetData?.existingScores && Array.isArray(liveSheetData.existingScores)) {
-        const liveContestantId = liveSheetData.contestant?._id || liveSheetData.contestant?.id
-        if (liveContestantId) {
-          serverScoresMap[liveContestantId] = {}
-          liveSheetData.existingScores.forEach(item => {
-            serverScoresMap[liveContestantId][item.rubricsId] = item.score
-          })
-        }
-      }
-    } catch (e) {
-      console.warn('Live sheet fetch notice:', e)
-    }
-
-    // B. Fetch Contestants from API (Module 6.1)
-    let contestantList = []
-    try {
-      const contRes = await judgeService.getContestants()
-      contestantList = Array.isArray(contRes) ? contRes : (contRes?.data || [])
-    } catch (e) {
-      console.warn('Contestants fetch notice:', e)
-    }
-
-    if (contestantList.length === 0 && liveSheetData?.contestant) {
-      contestantList = [liveSheetData.contestant]
-    }
-
-    const cachedScores = getCachedScores()
-    const isUserTyping = !!savingCandidateId.value
-
-    // If candidates are already rendered, update scores IN-PLACE to prevent losing focus
-    if (candidates.value.length > 0 && contestantList.length > 0) {
-      candidates.value.forEach(existingCandidate => {
-        const serverCandidateScores = serverScoresMap[existingCandidate.id]
-        if (serverCandidateScores) {
-          criteriaList.value.forEach(crit => {
-            const freshScore = serverCandidateScores[crit.id]
-            // Only update if server returned a score and the judge isn't typing on this candidate
-            if (freshScore !== undefined && freshScore !== '' && (!isUserTyping || existingCandidate.id !== savingCandidateId.value)) {
-              existingCandidate.scores[crit.id] = Number(freshScore)
-            }
-          })
-        }
-      })
-      saveScoresToCache()
-      return
-    }
-
-    // Initial hydration if candidates list was empty
-    candidates.value = contestantList.map((c, idx) => {
-      const candidateId = c._id || c.id || `c-${idx}`
-      const candidateCache = cachedScores[candidateId] || {}
-      const candidateServerScores = serverScoresMap[candidateId] || {}
-      const scoresObj = {}
-
-      criteriaList.value.forEach(crit => {
-        if (candidateServerScores[crit.id] !== undefined && candidateServerScores[crit.id] !== '') {
-          scoresObj[crit.id] = Number(candidateServerScores[crit.id])
-        } else if (candidateCache[crit.id] !== undefined && candidateCache[crit.id] !== '') {
-          scoresObj[crit.id] = Number(candidateCache[crit.id])
-        } else {
-          scoresObj[crit.id] = ''
-        }
-      })
-
-      let avatarUrl = c.image
-      if (!avatarUrl || avatarUrl.includes('example.com')) {
-        avatarUrl = fallbackAvatars[idx % fallbackAvatars.length]
-      }
-
-      const groupDisplay = typeof c.group === 'object' ? c.group?.name : c.group
-
-      return {
-        id: candidateId,
-        name: c.name || 'Candidate Name',
-        label: c.label || `${c.number ? '#' + c.number : 'Candidate'}`,
-        group: groupDisplay || 'General',
-        rawGroup: c.group,
-        avatar: avatarUrl,
-        yearDotColor: (c.label || '').includes('2nd') ? 'bg-red-500' : 'bg-yellow-400',
-        scores: scoresObj
-      }
-    })
-
-    saveScoresToCache()
-  } catch (err) {
-    console.error('Error auto-syncing scores:', err)
-  }
-}
-
-// ── 3. Initial Setup & Polling Lifecycle ──────────────────────────────
+// ── Data Initialization (API Contract + Local Hydration) ─────────────
 async function initializeScoresheet() {
   isLoading.value = true
   try {
     const routeCategoryParam = route.params.categoryId || route.query.categoryId || route.query.category
 
-    await fetchContestantGroups()
-
+    // 1. Fetch Categories & Rubrics (GET /api/v1/categories)
     let categories = []
     try {
-      categories = await judgeService.getCategories()
+      const catRes = await judgeService.getCategories()
+      categories = catRes?.data || catRes || []
     } catch (e) {
-      console.warn('Could not fetch categories:', e)
+      console.warn('Could not fetch categories list:', e)
     }
 
     let matchedCat = null
@@ -258,8 +124,17 @@ async function initializeScoresheet() {
       )
     }
 
-    if (!matchedCat && categories.length > 0) {
-      matchedCat = categories[0]
+    // 2. Fetch Live Sheet (GET /api/v1/scores/live-sheet)
+    let liveSheetData = null
+    try {
+      const liveRes = await judgeService.getLiveSheet()
+      liveSheetData = liveRes?.data || liveRes
+    } catch (e) {
+      console.warn('Could not fetch live sheet:', e)
+    }
+
+    if (!matchedCat && liveSheetData?.category) {
+      matchedCat = Array.isArray(liveSheetData.category) ? liveSheetData.category[0] : liveSheetData.category
     }
 
     if (matchedCat) {
@@ -272,20 +147,81 @@ async function initializeScoresheet() {
         criteriaList.value = matchedCat.rubrics.map(r => ({
           id: r._id,
           label: r.name,
-          max: r.maxPoints || 40
+          max: r.maxPoints || r.maxScore || 40
         }))
       }
     }
 
+    // Fallback rubrics if none returned
     if (criteriaList.value.length === 0) {
       criteriaList.value = [
-        { id: '65f8a123b0a9c12345678911', label: 'Fitness & Form', max: 40 },
-        { id: '65f8a123b0a9c12345678912', label: 'Stage Presence', max: 40 },
-        { id: '65f8a123b0a9c12345678913', label: 'Poise & Bearing', max: 20 }
+        { id: '65f8a123b0a9c12345678918', label: 'Adherence & Neatness', max: 50 },
+        { id: '65f8a123b0a9c12345678919', label: 'Bearing & Deportment', max: 50 }
       ]
     }
 
-    await loadCandidatesAndScores()
+    // 3. Map Live Sheet Scores (for active contestant)
+    const liveScoresMap = {}
+    if (liveSheetData?.existingScores && Array.isArray(liveSheetData.existingScores)) {
+      liveSheetData.existingScores.forEach(item => {
+        liveScoresMap[item.rubricsId] = item.score
+      })
+    }
+
+    // 4. Fetch All Contestants (GET /api/v1/contestants)
+    let contestantList = []
+    try {
+      const contRes = await judgeService.getContestants()
+      contestantList = contRes?.data || contRes || []
+    } catch (e) {
+      console.warn('Could not fetch contestants list:', e)
+    }
+
+    if (!Array.isArray(contestantList) || contestantList.length === 0) {
+      if (liveSheetData?.contestant) {
+        contestantList = [liveSheetData.contestant]
+      }
+    }
+
+    // 5. Hydrate from Cache and Server
+    const cachedScores = getCachedScores()
+
+    candidates.value = contestantList.map((c, idx) => {
+      const isLiveContestant = liveSheetData?.contestant && 
+        (c._id === liveSheetData.contestant._id || c._id === '65f8a123b0a9c12345678920')
+
+      const candidateCache = cachedScores[c._id || c.id] || {}
+      const scoresObj = {}
+
+      criteriaList.value.forEach(crit => {
+        if (candidateCache[crit.id] !== undefined && candidateCache[crit.id] !== '') {
+          scoresObj[crit.id] = Number(candidateCache[crit.id])
+        } else if (isLiveContestant && liveScoresMap[crit.id] !== undefined) {
+          scoresObj[crit.id] = Number(liveScoresMap[crit.id])
+        } else {
+          scoresObj[crit.id] = ''
+        }
+      })
+
+      let avatarUrl = c.image
+      if (!avatarUrl || avatarUrl.includes('example.com')) {
+        avatarUrl = fallbackAvatars[idx % fallbackAvatars.length]
+      }
+
+      const groupName = typeof c.group === 'object' ? c.group?.name : c.group
+
+      return {
+        id: c._id || `c-${idx}`,
+        name: c.name || 'Candidate Name',
+        label: c.label || '1st Year',
+        group: groupName || 'Pageant Male',
+        avatar: avatarUrl,
+        yearDotColor: (c.label || '').includes('2nd') ? 'bg-red-500' : 'bg-yellow-400',
+        scores: scoresObj
+      }
+    })
+
+    saveScoresToCache()
   } catch (error) {
     console.error('Scoresheet load error:', error)
   } finally {
@@ -293,13 +229,7 @@ async function initializeScoresheet() {
   }
 }
 
-// Automatically refetches whenever a filter pill is clicked
-async function handleFilterChange(tabId) {
-  activeFilter.value = tabId
-  await loadCandidatesAndScores()
-}
-
-// ── 4. Submit Score ───────────────────────────────────────────────────
+// ── Submit Score (POST /api/v1/scores/submit + Local Cache) ───────────
 async function onScoreInput(candidate, criterionId, max) {
   let val = candidate.scores[criterionId]
 
@@ -333,7 +263,7 @@ async function onScoreInput(candidate, criterionId, max) {
       rubricsScore: rubricsScorePayload
     })
   } catch (err) {
-    console.warn('Score saved in local cache:', err)
+    console.warn('Score submission error / saved in local cache:', err)
   } finally {
     setTimeout(() => {
       savingCandidateId.value = null
@@ -355,22 +285,8 @@ function formatScore(val) {
   return isNaN(num) ? '' : num < 10 && num >= 0 ? `0${num}` : `${num}`
 }
 
-onMounted(async () => {
-  await initializeScoresheet()
-
-  // Background auto-sync every 3.5 seconds
-  autoSyncTimer = setInterval(() => {
-    // Only auto-sync when user isn't in the middle of typing a score
-    if (!savingCandidateId.value) {
-      loadCandidatesAndScores()
-    }
-  }, 3500)
-})
-
-onUnmounted(() => {
-  if (autoSyncTimer) {
-    clearInterval(autoSyncTimer)
-  }
+onMounted(() => {
+  initializeScoresheet()
 })
 </script>
 
@@ -385,8 +301,9 @@ onUnmounted(() => {
       :style="{ backgroundImage: `url(${starBg})` }"
     ></div>
 
-    <!-- ── TOP BAR NAVIGATION ── -->
+    <!-- ── FULL-WIDTH TOP BAR NAVIGATION (Exact Dashboard Placement: px-8 py-6 w-full) ── -->
     <header class="relative z-10 flex items-center justify-between px-8 py-6 w-full">
+      <!-- Go Back -->
       <button 
         @click="goBack"
         class="flex items-center gap-2 text-white/90 hover:text-white font-medium text-lg transition-colors cursor-pointer group"
@@ -395,6 +312,7 @@ onUnmounted(() => {
         <span>Go back</span>
       </button>
 
+      <!-- Live Mode Toggle (Exact Figma Colors & Gradient) -->
       <div class="flex items-center gap-3">
         <button 
           @click="toggleLiveMode" 
@@ -406,6 +324,7 @@ onUnmounted(() => {
               : 'linear-gradient(90deg, #64748b 0%, #0f172a 100%)'
           }"
         >
+          <!-- Red Ball Indicator (#E00000) -->
           <div 
             class="w-[20px] h-[20px] rounded-full transition-all duration-300 flex items-center justify-center"
             :class="isLiveMode 
@@ -422,7 +341,7 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <!-- ── MAIN CONTENT ── -->
+    <!-- ── MAIN CONTENT (Centered Max-W-6xl) ── -->
     <main class="relative z-10 flex-1 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-20 w-full">
 
       <!-- ── LOGO & CATEGORY TITLE BANNER ── -->
@@ -433,7 +352,9 @@ onUnmounted(() => {
           class="h-28 sm:h-36 md:h-40 w-auto object-contain drop-shadow-[0_4px_20px_rgba(255,255,255,0.15)] mb-2"
         />
 
+        <!-- Category Title (Cyan Left -> Purple Right with Underlying Golden Aura) -->
         <div class="relative flex items-center justify-center mt-3 mb-3 select-none">
+          <!-- Layer 1: Ambient Golden Glow Layer -->
           <span 
             class="neon-ambient-glow font-croparo text-3xl sm:text-5xl md:text-6xl tracking-widest uppercase text-center absolute select-none pointer-events-none"
             aria-hidden="true"
@@ -441,6 +362,7 @@ onUnmounted(() => {
             {{ categoryDisplayName }}
           </span>
 
+          <!-- Layer 2: Main Gradient Neon Title -->
           <h1 
             class="neon-category-title font-croparo text-3xl sm:text-5xl md:text-6xl tracking-widest uppercase text-center relative z-10"
             :data-text="categoryDisplayName"
@@ -450,36 +372,25 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- ── DYNAMIC FILTER PILLS & LIVE SYNC STATUS ── -->
-      <div class="flex flex-wrap items-center justify-between gap-3 mb-8">
-        <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
-          <span class="text-sm md:text-base font-semibold text-gray-200 mr-1">
-            Filter:
-          </span>
+      <!-- ── FILTER PILLS ── -->
+      <div class="flex flex-wrap items-center gap-2.5 sm:gap-3 mb-8">
+        <span class="text-sm md:text-base font-semibold text-gray-200 mr-1">
+          Filter:
+        </span>
 
-          <button
-            v-for="tab in filterTabs"
-            :key="tab.id"
-            @click="handleFilterChange(tab.id)"
-            class="px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer shadow-sm"
-            :class="[
-              activeFilter === tab.id
-                ? 'bg-[#3A6BFF] text-white shadow-[0_0_12px_rgba(58,107,255,0.6)]'
-                : 'bg-[#D9D9D9] text-[#1E293B] hover:bg-white'
-            ]"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-
-        <!-- Automatic Live Sync Status Badge -->
-        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-950/40 border border-blue-400/20 text-xs text-blue-300">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
-          </span>
-          <span class="font-medium tracking-wide">Auto-syncing scores</span>
-        </div>
+        <button
+          v-for="tab in filterTabs"
+          :key="tab.id"
+          @click="activeFilter = tab.id"
+          class="px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer shadow-sm"
+          :class="[
+            activeFilter === tab.id
+              ? 'bg-[#3A6BFF] text-white shadow-[0_0_12px_rgba(58,107,255,0.6)]'
+              : 'bg-[#D9D9D9] text-[#1E293B] hover:bg-white'
+          ]"
+        >
+          {{ tab.label }}
+        </button>
       </div>
 
       <!-- ── LOADING SPINNER ── -->
@@ -489,7 +400,7 @@ onUnmounted(() => {
       </div>
 
       <div v-else>
-        <!-- ── TABLE HEADER ── -->
+        <!-- ── SCORESHEET TABLE HEADER ── -->
         <div 
           class="w-full rounded-t-xl overflow-hidden shadow-lg grid grid-cols-12 items-center py-3.5 px-3 sm:px-6 text-[11px] sm:text-xs md:text-sm font-bold uppercase tracking-wider text-black"
           style="background: linear-gradient(90deg, #FAD02C 0%, #D8BE36 28%, #1D4ED8 70%, #0047FF 100%);"
@@ -512,14 +423,14 @@ onUnmounted(() => {
         </div>
 
         <!-- ── ALL CANDIDATES ROWS ── -->
-        <div class="space-y-3 mt-3 relative">
+        <div class="space-y-3 mt-3">
           <div
             v-for="(candidate, idx) in filteredCandidates"
             :key="candidate.id"
             class="relative w-full rounded-2xl p-3 sm:p-4 grid grid-cols-12 items-center border border-blue-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-transform hover:scale-[1.006]"
             style="background: linear-gradient(90deg, #021B79 0%, #0529A8 40%, #001254 100%);"
           >
-            <!-- Candidate Info -->
+            <!-- Candidate Information -->
             <div class="col-span-5 sm:col-span-4 flex items-center gap-2.5 sm:gap-4 pl-1">
               <div class="relative w-11 h-13 sm:w-14 sm:h-16 shrink-0 rounded-lg overflow-hidden bg-gradient-to-b from-yellow-400 to-amber-600 p-0.5 shadow-md">
                 <img 
@@ -561,6 +472,7 @@ onUnmounted(() => {
                   :placeholder="formatScore(candidate.scores[criterion.id]) || '00'"
                   class="w-11 h-9 sm:w-16 sm:h-10 text-center font-bold text-sm sm:text-lg bg-[#00144D]/80 border border-blue-400/60 rounded-md text-white placeholder-white focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
+                <!-- Max Points Denominator -->
                 <span class="text-xs sm:text-sm font-semibold text-gray-200 select-none">
                   / {{ criterion.max }}
                 </span>
@@ -573,7 +485,7 @@ onUnmounted(() => {
             v-if="filteredCandidates.length === 0" 
             class="text-center py-12 text-gray-400 bg-blue-950/20 rounded-xl border border-blue-900/40"
           >
-            No candidates found in this filter group.
+            No candidates found in this filter category.
           </div>
         </div>
       </div>
@@ -583,6 +495,14 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* 
+  Figma Linear Gradient:
+  LEFT (0%):    #00FFFB (Cyan / Aqua)
+  MID (55%):    #3B82F6 (Electric Blue)
+  RIGHT (100%): #7D1F59 (Purple / Magenta)
+*/
+
+/* 1. Underlying Golden Neon Halo */
 .neon-ambient-glow {
   color: #FACC15;
   filter: blur(14px);
@@ -591,6 +511,7 @@ onUnmounted(() => {
   z-index: 1;
 }
 
+/* 2. Main Title: Left Cyan -> Right Purple with outer electrical drop-shadow */
 .neon-category-title {
   background: linear-gradient(90deg, #00FFFB 0%, #3B82F6 55%, #7D1F59 100%);
   -webkit-background-clip: text;
@@ -598,11 +519,13 @@ onUnmounted(() => {
   background-clip: text;
   display: inline-block;
   position: relative;
+  /* Left cyan glow + center gold warmth + right magenta glow */
   filter: drop-shadow(-8px 0 14px rgba(0, 255, 251, 0.9))
           drop-shadow(0 0 20px rgba(234, 179, 8, 0.75))
           drop-shadow(8px 0 16px rgba(125, 31, 89, 0.8));
 }
 
+/* 3. Inline hollow stroke layer for the dual-tube neon effect */
 .neon-category-title::before {
   content: attr(data-text);
   position: absolute;
