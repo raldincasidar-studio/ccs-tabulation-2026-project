@@ -99,6 +99,7 @@ function handleLogout() {
       ></div>
 
       <Sidebar
+        active-item="CONTESTANTS"
         :is-mobile="isMobile"
         :is-sidebar-collapsed="isSidebarCollapsed"
         :is-mobile-sidebar-open="isMobileSidebarOpen"

@@ -1,6 +1,6 @@
 <script setup>
-import { RouterLink, useRoute, useRouter } from "vue-router";
-import brandLogo from "@/assets/img/logo.png.png";
+import { useRouter } from "vue-router";
+import dashboardImage from "@/assets/img/logo.png.png";
 import oneStarImage from "@/assets/img/one star.png";
 import {
   BarChart3,
@@ -38,15 +38,21 @@ const emit = defineEmits([
 ]);
 
 const router = useRouter();
-const route = useRoute();
 
 const navigation = [
-  { label: "DASHBOARD", icon: LayoutGrid, to: "/admin" },
-  { label: "CONFIGURATIONS", icon: Settings2, to: "/admin" },
-  { label: "MANAGEMENT", icon: BriefcaseBusiness, to: "/admin" },
-  { label: "CONTESTANTS", icon: Users, to: "/admin/contestants" },
-  { label: "REPORTS", icon: BarChart3, to: "/admin" },
+  { label: "DASHBOARD", icon: LayoutGrid, route: "/admin" },
+  { label: "CONFIGURATIONS", icon: Settings2, route: "/admin" },
+  { label: "JUDGES", icon: BriefcaseBusiness, route: "/admin" },
+  { label: "CONTESTANTS", icon: Users, route: "/admin/contestants" },
+  { label: "REPORTS", icon: BarChart3, route: "/admin" },
 ];
+
+function handleNavigation(item) {
+  emit("close-mobile-sidebar");
+  if (item.route) {
+    router.push(item.route);
+  }
+}
 
 function handleLogout() {
   emit("logout");
@@ -91,23 +97,22 @@ function handleLogout() {
       :style="{ '--brand-star-image': `url(${oneStarImage})` }"
       aria-label="Mrs and Mr Computing Studies 2026"
     >
-      <img :src="brandLogo" alt="Mr. and Ms. College of Computing Studies 2026" />
+      <img :src="dashboardImage" alt="Computing Studios 2026" />
     </div>
 
     <nav class="sidebar-navigation" aria-label="Main navigation">
-      <component
-        :is="item.to ? RouterLink : 'a'"
-        v-for="item in navigation"
+      <button
+        v-for="(item, index) in navigation"
         :key="item.label"
-        :to="item.to || undefined"
-        :href="item.to ? undefined : '#dashboard'"
-        :class="['sidebar-link', { active: item.to ? route.path === item.to : item.label === props.activeItem }]"
-        :aria-current="(item.to ? route.path === item.to : item.label === props.activeItem) ? 'page' : undefined"
-        @click="emit('close-mobile-sidebar')"
+        type="button"
+        class="sidebar-link"
+        :class="{ active: item.label === props.activeItem }"
+        :aria-current="item.label === props.activeItem ? 'page' : undefined"
+        @click="handleNavigation(item)"
       >
         <component :is="item.icon" class="sidebar-icon" :size="18" />
         <span>{{ item.label }}</span>
-      </component>
+      </button>
     </nav>
 
     <button class="sign-out" type="button" @click="handleLogout()">
@@ -212,8 +217,8 @@ function handleLogout() {
   position: relative;
   top: auto;
   left: auto;
-  width: 61px;
-  max-width: 61px;
+  width: 56px;
+  max-width: 56px;
   max-height: 90px;
   height: auto;
   object-fit: contain;
@@ -280,8 +285,8 @@ function handleLogout() {
 
 .sidebar-brand::after {
   position: absolute;
-  top: 44%;
-  right: 12px;
+  top: 50%;
+  right: 0;
   z-index: 1;
   width: 70px;
   height: 90px;
@@ -292,17 +297,16 @@ function handleLogout() {
 }
 
 .sidebar-brand img {
-  position: relative;
-  inset: auto;
+  position: absolute;
+  top: 11px;
+  left: 44px;
   z-index: 2;
   display: block;
-  width: min(179px, 100%);
-  max-width: 100%;
+  width: 174px;
+  max-width: none;
   height: 143px;
-  max-height: 100%;
-  margin: 0 auto;
+  max-height: 143px;
   object-fit: contain;
-  transform: translateX(20px);
 }
 
 .sidebar-navigation {
@@ -357,11 +361,9 @@ function handleLogout() {
 }
 
 .sidebar-link.active {
-  min-height: 42px;
-  color: rgb(245 246 255 / 82%);
-  background: rgb(17 21 109 / 62%);
-  box-shadow: inset 3px 0 0 rgb(129 170 255 / 55%);
-  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 35px;
+  color: #f5f6ff;
+  background: #11156d;
 }
 
 .sidebar-link:not(.active):hover,
@@ -538,19 +540,30 @@ function handleLogout() {
   }
 
   .sidebar-brand {
-    height: 170px;
-    flex-basis: 170px;
-    padding: 8px 18px;
+    height: 90px;
+    padding-top: 14px;
+  }
+
+  .sidebar-brand::after {
+    top: 50%;
+    right: 18px;
+    left: auto;
+    width: 52px;
+    height: 52px;
+    background-size: 48px 48px;
+    opacity: 0.9;
+    transform: translateY(-50%);
   }
 
   .sidebar-brand img {
     position: relative;
-    inset: auto;
-    width: min(225px, 100%);
-    max-width: 100%;
-    height: auto;
-    max-height: 154px;
-    margin: 0 auto;
+    top: auto;
+    left: 35px;
+    width: 250px;
+    max-width: none;
+    height: 120px;
+    max-height: 120px;
+    margin-right: 18px;
   }
 
   .sidebar-navigation {
