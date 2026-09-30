@@ -1,25 +1,32 @@
-import api from './api';
+import api from './api.js';
 
-function unwrapData(response) {
-  return response?.data !== undefined ? response.data : response;
+export async function getContestants(groupId = null) {
+  const params = {};
+
+  if (groupId) {
+    params.groupId = groupId;
+  }
+
+  const response = await api.get('/contestants', { params });
+  return response?.data ?? response;
 }
 
-export const contestantService = {
-  async getContestants() {
-    return unwrapData(await api.get('/contestants'));
-  },
+export async function getContestantGroups() {
+  const response = await api.get('/contestant-groups');
+  return response?.data ?? response;
+}
 
-  async getContestantGroups() {
-    return unwrapData(await api.get('/contestant-groups'));
-  },
+export async function createContestant(contestantData) {
+  const response = await api.post('/contestants', contestantData);
+  return response?.data ?? response;
+}
 
-  async createContestant(payload) {
-    return unwrapData(await api.post('/contestants', payload));
-  },
+export async function updateContestant(id, contestantData) {
+  const response = await api.put(`/contestants/${id}`, contestantData);
+  return response?.data ?? response;
+}
 
-  async updateContestant(id, payload) {
-    return unwrapData(await api.put(`/contestants/${id}`, payload));
-  },
-};
-
-export default contestantService;
+export async function deleteContestant(id) {
+  const response = await api.delete(`/contestants/${id}`);
+  return response?.data ?? response;
+}

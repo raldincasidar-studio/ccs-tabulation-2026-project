@@ -6,6 +6,7 @@ import JudgeDashboardView from '@/views/JudgeDashboardView.vue';
 import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';
 import AdminView from '@/views/AdminView.vue';
 import JudgeLiveView from '@/views/JudgeLiveView.vue';
+import ContestantManagementView from '@/views/ContestantManagementView.vue';
 import AddContestantManagement from '@/views/AddContestantManagement.vue';
 import ConfigurationView from '@/views/ConfigurationView.vue';
 import AddContestantGroupView from '@/views/AddContestantGroupView.vue';
@@ -65,6 +66,13 @@ const routes = [
     path: '/admin/judges',
     name: 'admin-judges',
     component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/contestants',
+    name: 'admin-contestants',
+    component: ContestantManagementView,
+    alias: '/admin/management',
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {

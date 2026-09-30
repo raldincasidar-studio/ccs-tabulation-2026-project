@@ -1,10 +1,16 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { ChevronRight } from "lucide-vue-next";
 import Sidebar from "@/components/Sidebar.vue";
 import starImage from "@/assets/img/star.png";
 import cameraPlusImage from "@/assets/img/camm.svg";
-import contestantService from "@/services/contestantService";
+import {
+	createContestant,
+	getContestantGroups,
+	getContestants,
+	updateContestant,
+} from "@/services/contestantService";
 
 const router = useRouter();
 const route = useRoute();
@@ -14,66 +20,63 @@ const isMobileSidebarOpen = ref(false);
 const isMenuHidden = ref(false);
 const fileInput = ref(null);
 const groups = ref([]);
-const isLoading = ref(true);
-const isSaving = ref(false);
-const saveMessage = ref("");
-const saveError = ref(false);
+const loading = ref(true);
+const saving = ref(false);
+const photoLoading = ref(false);
+const error = ref("");
+const saveError = ref("");
+const imagePreviewFailed = ref(false);
+const contestantId = computed(() => typeof route.query.id === "string" ? route.query.id : "");
+const isEditing = computed(() => Boolean(contestantId.value));
 const contestant = ref({
 	name: "",
 	label: "",
 	group: "",
-	isActive: true,
-	photo: "",
+	image: "",
 });
 const isEditing = computed(() => Boolean(route.params.id));
 
 const hasValidContestant = computed(() =>
 	contestant.value.name.trim() &&
 	contestant.value.label.trim() &&
-	contestant.value.group,
+	contestant.value.group &&
+	groups.value.some((group) => group._id === contestant.value.group),
 );
 
-function unwrapList(result) {
-	const data = result?.data !== undefined ? result.data : result;
-	return Array.isArray(data) ? data : [];
+function openFilePicker() {
+	fileInput.value?.click();
 }
 
-async function loadContestant() {
-	isLoading.value = true;
-	saveMessage.value = "";
-	contestant.value = {
-		name: "",
-		label: "",
-		group: "",
-		isActive: true,
-		photo: "",
-	};
-	try {
-		const [contestantsResult, groupsResult] = await Promise.all([
-			contestantService.getContestants(),
-			contestantService.getContestantGroups(),
-		]);
-		groups.value = unwrapList(groupsResult);
+function handlePhotoChange(event) {
+	const input = event.target;
+	const file = input.files?.[0];
+	input.value = "";
+	if (!file) return;
 
-		if (isEditing.value) {
-			const current = unwrapList(contestantsResult).find(
-				(item) => item._id === route.params.id,
-			);
-			if (!current) throw new Error("Contestant not found.");
-			contestant.value = {
-				name: current.name || "",
-				label: current.label || "",
-				group: typeof current.group === "object" ? current.group?._id : current.group || "",
-				isActive: current.isActive !== false,
-				photo: current.image || "",
-			};
-		}
-	} catch (error) {
-		saveError.value = true;
-		saveMessage.value = error.message || "Unable to load contestant data.";
-	} finally {
-		isLoading.value = false;
+	saveError.value = "";
+	if (!file.type.startsWith("image/")) {
+		saveError.value = "Choose an image file.";
+		return;
 	}
+	if (file.size > 5 * 1024 * 1024) {
+		saveError.value = "Choose an image smaller than 5 MB.";
+		return;
+	}
+
+	photoLoading.value = true;
+	const reader = new FileReader();
+	reader.onload = () => {
+		if (typeof reader.result === "string") {
+			contestant.value.image = reader.result;
+			imagePreviewFailed.value = false;
+		}
+		photoLoading.value = false;
+	};
+	reader.onerror = () => {
+		saveError.value = "Unable to read this image. Choose another file.";
+		photoLoading.value = false;
+	};
+	reader.readAsDataURL(file);
 }
 
 function updateViewportState() {
@@ -97,64 +100,69 @@ function handleScrollState() {
 	isMenuHidden.value = scrollTop > 12;
 }
 
-function openFilePicker() {
-	fileInput.value?.click();
-}
+async function loadContestantForm() {
+	loading.value = true;
+	error.value = "";
+	try {
+		const groupResponse = await getContestantGroups();
+		groups.value = Array.isArray(groupResponse) ? groupResponse : groupResponse?.data ?? [];
 
-function handlePhotoChange(event) {
-	const file = event.target.files?.[0];
-	if (!file) return;
-	if (!file.type.startsWith("image/")) {
-		saveError.value = true;
-		saveMessage.value = "Choose a valid image file.";
-		event.target.value = "";
-		return;
+		if (isEditing.value) {
+			const contestantResponse = await getContestants();
+			const contestantList = Array.isArray(contestantResponse)
+				? contestantResponse
+				: contestantResponse?.data ?? [];
+			const existing = contestantList.find((item) => (item._id || item.id) === contestantId.value);
+			if (!existing) throw new Error("Contestant not found.");
+
+			contestant.value = {
+				name: existing.name || "",
+				label: existing.label || "",
+				group: typeof existing.group === "object" ? existing.group?._id || "" : existing.group || "",
+				image: existing.image || "",
+			};
+			imagePreviewFailed.value = false;
+		} else {
+			contestant.value.group = groups.value[0]?._id || "";
+		}
+	} catch (err) {
+		error.value = err?.message || "Unable to load contestant details.";
+	} finally {
+		loading.value = false;
 	}
-
-	const reader = new FileReader();
-	reader.onload = () => {
-		contestant.value.photo = reader.result;
-		saveError.value = false;
-		saveMessage.value = "";
-	};
-	reader.onerror = () => {
-		saveError.value = true;
-		saveMessage.value = "Unable to read the selected image.";
-	};
-	reader.readAsDataURL(file);
 }
 
 async function saveContestant() {
+	saveError.value = "";
 	if (!hasValidContestant.value) {
-		saveError.value = true;
-		saveMessage.value = "Complete all required fields.";
+		saveError.value = "Enter a name and label, then select a contestant group.";
 		return;
 	}
 
-	isSaving.value = true;
-	saveMessage.value = "";
+	saving.value = true;
 	const payload = {
 		name: contestant.value.name.trim(),
 		label: contestant.value.label.trim(),
-		image: contestant.value.photo,
 		group: contestant.value.group,
-		isActive: contestant.value.isActive,
+		image: contestant.value.image.trim(),
 	};
+
 	try {
 		if (isEditing.value) {
-			await contestantService.updateContestant(route.params.id, payload);
-			saveMessage.value = "Contestant updated successfully.";
+			await updateContestant(contestantId.value, payload);
 		} else {
-			await contestantService.createContestant(payload);
-			saveMessage.value = "Contestant created successfully.";
+			await createContestant(payload);
 		}
-		saveError.value = false;
-	} catch (error) {
-		saveError.value = true;
-		saveMessage.value = error.message || "Unable to save contestant.";
+		router.push("/admin/contestants");
+	} catch (err) {
+		saveError.value = err?.message || "Unable to save contestant.";
 	} finally {
-		isSaving.value = false;
+		saving.value = false;
 	}
+}
+
+function goBack() {
+	router.push("/admin/contestants");
 }
 
 function handleLogout() {
@@ -166,6 +174,7 @@ function handleLogout() {
 onMounted(() => {
 	updateViewportState();
 	handleScrollState();
+	loadContestantForm();
 	window.addEventListener("resize", updateViewportState);
 	window.addEventListener("scroll", handleScrollState, { passive: true });
 });
@@ -203,7 +212,7 @@ onBeforeUnmount(() => {
 				@click="isMobileSidebarOpen = false"
 			></div>
 			<Sidebar
-				active-item="MANAGEMENT"
+				active-item="CONTESTANTS"
 				:is-mobile="isMobile"
 				:is-sidebar-collapsed="isSidebarCollapsed"
 				:is-mobile-sidebar-open="isMobileSidebarOpen"
@@ -215,18 +224,29 @@ onBeforeUnmount(() => {
 			<main class="main-content">
 				<div class="page-content">
 					<header class="management-banner">
-						<h1>{{ isEditing ? "EDIT CONTESTANT" : "CONTESTANT MANAGEMENT" }}</h1>
+						<h1>{{ isEditing ? "EDIT CONTESTANT" : "ADD CONTESTANT" }}</h1>
 					</header>
 
-					<form class="contestant-editor" @submit.prevent="saveContestant">
+					<p v-if="!loading && !error && groups.length === 0" class="form-error" role="alert">
+						Create a contestant group before adding contestants.
+					</p>
+
+					<p v-if="loading" class="form-state" role="status">Loading contestant form...</p>
+					<div v-else-if="error" class="form-state form-error" role="alert">
+						<p>{{ error }}</p>
+						<button class="cancel-button" type="button" @click="goBack">Back to contestants</button>
+					</div>
+					<form v-else class="contestant-editor" @submit.prevent="saveContestant">
 						<section class="photo-column" aria-label="Contestant photo">
 							<div class="photo-frame">
 								<img
-									v-if="contestant.photo"
+									v-if="contestant.image && !imagePreviewFailed"
 									class="photo-preview"
-									:src="contestant.photo"
-									alt="Contestant preview"
+									:src="contestant.image"
+									:alt="`${contestant.name || 'Contestant'} preview`"
+									@error="imagePreviewFailed = true"
 								/>
+								<p v-else class="photo-placeholder">{{ photoLoading ? "Preparing photo..." : "Photo preview" }}</p>
 								<input
 									ref="fileInput"
 									class="file-input"
@@ -234,57 +254,45 @@ onBeforeUnmount(() => {
 									accept="image/*"
 									@change="handlePhotoChange"
 								/>
-								<button class="upload-button" type="button" @click="openFilePicker">
+								<button class="upload-button" type="button" :disabled="photoLoading" @click="openFilePicker">
 									<img class="upload-camera" :src="cameraPlusImage" alt="" />
-									<span>Upload Photo</span>
+									<span>{{ photoLoading ? "Preparing Photo" : "Upload Photo" }}</span>
 								</button>
 							</div>
 						</section>
 
 						<section class="contestant-fields" aria-label="Contestant information">
 							<div class="paired-fields">
-								<div class="field">
-									<label for="contestant-name">NAME</label>
-									<input id="contestant-name" v-model="contestant.name" type="text" />
+								<div class="name-group-column">
+									<div class="field">
+										<label for="contestant-name">NAME</label>
+										<input id="contestant-name" v-model="contestant.name" type="text" required />
+									</div>
+									<div class="group-control field">
+										<label for="contestant-group">GROUP</label>
+										<div class="category-select-wrap">
+											<select id="contestant-group" v-model="contestant.group" aria-label="Select contestant group" required>
+												<option disabled value="">Select a group</option>
+												<option v-for="group in groups" :key="group._id" :value="group._id">{{ group.name }}</option>
+											</select>
+											<ChevronRight :size="14" aria-hidden="true" />
+										</div>
+									</div>
 								</div>
 								<div class="field">
 									<label for="contestant-label">LABEL</label>
-									<input id="contestant-label" v-model="contestant.label" type="text" />
+									<input id="contestant-label" v-model="contestant.label" type="text" required />
 								</div>
-							</div>
-							<div class="group-field field">
-								<label for="contestant-group">GROUP</label>
-								<select id="contestant-group" v-model="contestant.group" required>
-									<option disabled value="">Select a group</option>
-									<option v-for="group in groups" :key="group._id" :value="group._id">
-										{{ group.name }}
-									</option>
-								</select>
 							</div>
 							<div class="form-actions">
-								<div class="active-control">
-									<span>Is Active</span>
-									<button
-										class="active-toggle"
-										:class="{ on: contestant.isActive }"
-										type="button"
-										role="switch"
-										:aria-checked="contestant.isActive"
-										aria-label="Is Active"
-										@click="contestant.isActive = !contestant.isActive"
-									><i></i></button>
-								</div>
-								<button class="save-button" type="submit" :disabled="isSaving || isLoading || !hasValidContestant">
-									{{ isSaving ? "SAVING..." : "SAVE" }}
+								<button class="cancel-button" type="button" @click="goBack">CANCEL</button>
+								<button class="save-button" type="submit" :disabled="saving || photoLoading || groups.length === 0">
+									{{ saving ? "SAVING..." : isEditing ? "SAVE CHANGES" : "CREATE CONTESTANT" }}
 								</button>
 							</div>
+							<p v-if="saveError" class="form-error" role="alert">{{ saveError }}</p>
 						</section>
 					</form>
-					<Teleport to="body">
-						<p v-if="saveMessage" class="save-message" :class="{ error: saveError }" role="status">
-							{{ saveMessage }}
-						</p>
-					</Teleport>
 				</div>
 			</main>
 		</div>
@@ -364,10 +372,47 @@ onBeforeUnmount(() => {
 	display: block;
 	color: #2119ae;
 	font-family: "Croparo", sans-serif;
+	font-size: 11px;
+	font-weight: 400;
+	line-height: 1.2;
+}
+
+.field > label {
+	font-family: "Croparo", sans-serif;
 	font-size: clamp(0.8rem, 0.8vw + 0.45rem, 1rem);
 	font-weight: 500;
 	line-height: 100%;
 	letter-spacing: 0;
+}
+
+.category-select-wrap {
+	position: relative;
+	width: min(100%, 260px);
+	height: 38px;
+	margin-top: 8px;
+}
+
+.category-select-wrap select {
+	width: 100%;
+	height: 100%;
+	appearance: none;
+	padding: 0 34px 0 12px;
+	border: 0;
+	border-radius: 4px;
+	outline-color: #aaa8ff;
+	background: #3327a6;
+	box-shadow: 0 2px 5px rgb(10 10 64 / 24%);
+	color: #fff;
+	font-family: "Poppins", sans-serif;
+	font-size: 13px;
+}
+
+.category-select-wrap svg {
+	position: absolute;
+	top: 12px;
+	right: 12px;
+	color: #fff;
+	pointer-events: none;
 }
 
 .contestant-editor {
@@ -405,6 +450,13 @@ onBeforeUnmount(() => {
 	object-fit: contain;
 }
 
+.photo-placeholder {
+	margin: 0;
+	color: #7770ed;
+	font-family: "Poppins", sans-serif;
+	font-size: 13px;
+}
+
 .file-input {
 	display: none;
 }
@@ -429,7 +481,12 @@ onBeforeUnmount(() => {
 	font-weight: 700;
 }
 
-.upload-button .upload-camera {
+.upload-button:disabled {
+	cursor: wait;
+	opacity: 0.7;
+}
+
+.upload-camera {
 	position: absolute;
 	top: -28px;
 	left: 50%;
@@ -447,8 +504,7 @@ onBeforeUnmount(() => {
 	margin-top: 6px;
 }
 
-.field input,
-.field select {
+.field input {
 	display: block;
 	width: 100%;
 	height: clamp(38px, 2.5vw, 42px);
@@ -471,11 +527,6 @@ onBeforeUnmount(() => {
 	outline-color: #7770ed;
 }
 
-.field select {
-	appearance: none;
-	cursor: pointer;
-}
-
 .paired-fields {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -483,58 +534,49 @@ onBeforeUnmount(() => {
 	margin-top: 19px;
 }
 
-.group-field {
-	width: min(100%, calc((100% - 41px) / 2));
-	margin-top: 16px;
+.name-group-column {
+	display: grid;
+	min-width: 0;
+	align-content: start;
+	gap: 18px;
+}
+
+.group-control {
+	min-width: 0;
 }
 
 .form-actions {
 	display: flex;
-	align-items: flex-end;
-	gap: clamp(18px, 5vw, 110px);
+	align-items: center;
+	justify-content: flex-end;
+	gap: 12px;
 	margin-top: 25px;
 	flex-wrap: wrap;
 }
 
-.active-control {
-	display: flex;
-	min-width: 63px;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 7px;
-	color: #080808;
-	font-family: "Poppins", sans-serif;
-	font-size: 10px;
-	font-weight: 700;
-	line-height: 12px;
-}
-
-.active-toggle {
-	position: relative;
-	width: 62px;
-	height: 26px;
-	padding: 0;
-	border: 0;
-	border-radius: 999px;
-	background: linear-gradient(#eceeef, #c7c9ca);
-	box-shadow: inset 0 1px 2px rgb(0 0 0 / 8%);
+.cancel-button {
+	min-height: 35px;
+	padding: 0 16px;
+	border: 1px solid #08065a;
+	border-radius: 5px;
+	background: transparent;
+	color: #08065a;
 	cursor: pointer;
+	font-family: "Poppins", sans-serif;
+	font-size: 11px;
+	font-weight: 700;
 }
 
-.active-toggle i {
-	position: absolute;
-	top: 5px;
-	left: 4px;
-	width: 17px;
-	height: 16px;
-	border-radius: 50%;
-	background: #8e9191;
-	transition: left 0.18s ease, background 0.18s ease;
+.form-state,
+.form-error {
+	margin: 18px 6px 0;
+	color: #687394;
+	font-family: "Poppins", sans-serif;
+	font-size: 13px;
 }
 
-.active-toggle.on i {
-	left: 34px;
-	background: #35b900;
+.form-error {
+	color: #a11b32;
 }
 
 .save-button {
@@ -555,23 +597,6 @@ onBeforeUnmount(() => {
 	cursor: not-allowed;
 	opacity: 0.55;
 }
-
-.save-message {
-	position: fixed;
-	right: 24px;
-	bottom: 24px;
-	z-index: 40;
-	margin: 0;
-	padding: 10px 16px;
-	border-radius: 6px;
-	background: #fff;
-	box-shadow: 0 4px 16px rgb(8 6 90 / 16%);
-	color: #218500;
-	font-family: "Poppins", sans-serif;
-	font-size: 12px;
-}
-
-.save-message.error { color: #a11b32; }
 
 .mobile-menu {
 	display: none;
@@ -594,8 +619,7 @@ onBeforeUnmount(() => {
 	}
 	.contestant-editor .photo-frame { width: 250px; }
 	.contestant-editor .paired-fields { gap: 24px; }
-	.contestant-editor .group-field { width: calc((100% - 24px) / 2); }
-	.contestant-editor .form-actions { gap: 40px; }
+	.contestant-editor .form-actions { gap: 12px; }
 }
 
 @media (max-width: 767px) {
@@ -621,6 +645,9 @@ onBeforeUnmount(() => {
 		line-height: 1.05;
 		letter-spacing: 0.04em;
 	}
+	.category-select-wrap {
+		width: min(100%, 220px);
+	}
 	.contestant-editor {
 		width: 100%;
 		max-width: 100%;
@@ -640,6 +667,11 @@ onBeforeUnmount(() => {
 		height: 280px;
 		margin: 0 auto;
 	}
+	.upload-button {
+		right: 16px;
+		bottom: 18px;
+		left: 16px;
+	}
 	.contestant-fields {
 		row-gap: 0;
 		padding-top: 0;
@@ -649,11 +681,8 @@ onBeforeUnmount(() => {
 		gap: 18px;
 		margin-top: 18px;
 	}
-	.group-field {
-		width: 100%;
-	}
 	.form-actions {
-		justify-content: space-between;
+		justify-content: flex-end;
 		gap: 12px;
 		margin-top: 24px;
 		flex-wrap: wrap;
@@ -701,24 +730,16 @@ onBeforeUnmount(() => {
 		width: 100%;
 		height: 250px;
 	}
-	.upload-button {
-		right: 16px;
-		left: 16px;
-		bottom: 18px;
-	}
 	.form-actions {
 		align-items: stretch;
 	}
 	.save-button {
-		width: 100%;
+		width: min(100%, 220px);
 		max-width: none;
 	}
 }
 
 @media (min-width: 768px) {
 	.photo-column { padding-top: 0; }
-	.management-shell :deep(.sidebar-navigation) { padding-top: 78px; }
-	.management-shell :deep(.sidebar-link) { min-height: 50px; }
-	.management-shell :deep(.sidebar-link.active) { min-height: 50px; }
 }
 </style>

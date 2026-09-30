@@ -5,7 +5,7 @@ import { ChevronLeft } from 'lucide-vue-next'
 import { judgeService } from '@/services/judgeService'
 import { getCurrentUser } from '@/services/authService'
 import starBg from '@/assets/img/star-bg.png'
-import mrMsLogo from '@/assets/img/mr-ms-css-logo.png'
+import mrMsLogo from '@/assets/img/logo.png.png'
 
 const router = useRouter()
 const route = useRoute()

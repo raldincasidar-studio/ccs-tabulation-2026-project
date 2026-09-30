@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { judgeService } from '@/services/judgeService'
 import { getCurrentUser } from '@/services/authService'
 import starBg from '@/assets/img/live-mode-bg.png'
-import mrMsLogo from '@/assets/img/mr-ms-css-logo.png'
+import mrMsLogo from '@/assets/img/logo.png.png'
 import podiumImg from '@/assets/img/podium.png'
 
 const router = useRouter()

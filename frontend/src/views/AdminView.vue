@@ -213,7 +213,7 @@ function handleLogout() {
 }
 
 .admin-dashboard {
-  --sidebar-width: 320px;
+  --sidebar-width: 218px;
   position: relative;
   min-height: 100vh;
   overflow: hidden;
@@ -643,35 +643,6 @@ function handleLogout() {
   background: rgb(0 0 0 / 42%);
 }
 
-.sidebar.mobile-open {
-  transform: translateX(0);
-  box-shadow: 0 0 0 1px rgb(89 137 255 / 20%), 0 22px 40px rgb(6 9 34 / 35%);
-}
-
-.sidebar-close {
-  position: absolute;
-  top: 18px;
-  right: 16px;
-  z-index: 4;
-  display: flex;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgb(118 163 255 / 42%);
-  border-radius: 8px;
-  background: rgb(13 19 62 / 70%);
-  color: #edf3ff;
-  cursor: pointer;
-  font-size: 20px;
-  line-height: 1;
-}
-
-.sidebar-close span {
-  display: block;
-  transform: translateY(-1px);
-}
-
 @media (max-width: 760px) {
   .main-content {
     margin-left: 0;
@@ -712,17 +683,6 @@ function handleLogout() {
   }
 }
 
-@media (min-width: 768px) {
-  .admin-dashboard :deep(.sidebar-navigation) {
-    padding-top: 78px;
-  }
-
-  .admin-dashboard :deep(.sidebar-link),
-  .admin-dashboard :deep(.sidebar-link.active) {
-    min-height: 50px;
-  }
-}
-
 @media (max-width: 680px) {
   .admin-frame { padding: 5px; }
   .admin-dashboard,
@@ -736,63 +696,6 @@ function handleLogout() {
 
   .admin-dashboard {
     min-height: 100vh;
-  }
-
-  .sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(100vw, 360px);
-    height: 100vh;
-    padding: 0 0 10px;
-  }
-
-  .sidebar-brand {
-    height: 90px;
-    padding-top: 14px;
-  }
-
-  .sidebar-brand::after {
-    top: 50%;
-    right: 18px;
-    left: auto;
-    width: 52px;
-    height: 52px;
-    background-size: 48px 48px;
-    opacity: 0.9;
-    transform: translateY(-50%);
-  }
-
-  .sidebar-brand img {
-    position: relative;
-    top: auto;
-    left: auto;
-    width: 250px;
-    max-width: none;
-    height: 120px;
-    max-height: 120px;
-    margin-right: 18px;
-  }
-
-  .sidebar-navigation {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 12px 18px 0;
-  }
-
-  .sidebar-navigation .sidebar-link,
-  .sidebar .sign-out {
-    gap: 10px;
-    min-height: 52px;
-    padding: 0 12px;
-    font-size: 1.1rem;
-    letter-spacing: 0.05em;
-  }
-
-  .sign-out {
-    margin: auto 0 18px;
-    font-size: 1.1rem;
   }
 
   .main-content {
@@ -930,3 +833,4 @@ function handleLogout() {
   }
 }
 </style>
+
