@@ -2,6 +2,7 @@
 import { useRouter } from "vue-router";
 import dashboardImage from "@/assets/img/logo.png.png";
 import oneStarImage from "@/assets/img/one star.png";
+import { logout } from "@/services/authService";
 import {
   BarChart3,
   BriefcaseBusiness,
@@ -54,9 +55,14 @@ function handleNavigation(item) {
   }
 }
 
-function handleLogout() {
-  emit("logout");
-  router.push("/login");
+async function handleLogout() {
+  try {
+    await logout();
+  } finally {
+    emit("close-mobile-sidebar");
+    emit("logout");
+    router.push("/login");
+  }
 }
 </script>
 
@@ -102,7 +108,7 @@ function handleLogout() {
 
     <nav class="sidebar-navigation" aria-label="Main navigation">
       <button
-        v-for="(item, index) in navigation"
+        v-for="item in navigation"
         :key="item.label"
         type="button"
         class="sidebar-link"
@@ -115,7 +121,7 @@ function handleLogout() {
       </button>
     </nav>
 
-    <button class="sign-out" type="button" @click="handleLogout()">
+    <button class="sign-out" type="button" @click="handleLogout">
       <span>SIGN OUT</span>
       <LogOut class="sign-out-icon" :size="14" />
     </button>
@@ -369,15 +375,6 @@ function handleLogout() {
 .sidebar-link:not(.active):hover,
 .sign-out:hover {
   background: rgb(255 255 255 / 10%);
-}
-
-.no-op-link {
-  cursor: pointer;
-  border: 0;
-  background: transparent;
-  text-align: left;
-  justify-content: flex-start;
-  appearance: none;
 }
 
 .sign-out {
