@@ -62,6 +62,12 @@ const routes = [
     redirect: '/dashboard',
   },
   {
+    path: '/admin/judges',
+    name: 'admin-judges',
+    component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
     path: '/admin/add-contestant',
     name: 'AddContestantManagement',
     component: AddContestantManagement,
