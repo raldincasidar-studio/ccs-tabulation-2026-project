@@ -1,9 +1,6 @@
 {
-  "installCommand": "npm --prefix api ci && npm --prefix frontend ci",
-  "buildCommand": "npm --prefix frontend run build",
-  "outputDirectory": "frontend/dist",
   "services": {
-    "api": {
+    "backend": {
       "root": "backend",
       "framework": "express"
     },
