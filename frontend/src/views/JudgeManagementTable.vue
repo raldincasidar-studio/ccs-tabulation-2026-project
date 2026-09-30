@@ -1,29 +1,20 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import api from '@/services/api'
-
-const judges = ref([])
-const isLoading = ref(true)
-const errorMessage = ref('')
+const props = defineProps({
+	judges: {
+		type: Array,
+		default: () => [],
+	},
+	isLoading: {
+		type: Boolean,
+		default: false,
+	},
+	errorMessage: {
+		type: String,
+		default: '',
+	},
+})
 
 const emit = defineEmits(['add', 'edit', 'delete'])
-
-async function loadJudges() {
-	isLoading.value = true
-	errorMessage.value = ''
-
-	try {
-		const response = await api.get('/judges')
-		const result = Array.isArray(response) ? response : response?.data
-		judges.value = Array.isArray(result) ? result : []
-	} catch (error) {
-		errorMessage.value = error?.message || 'Unable to load judges.'
-	} finally {
-		isLoading.value = false
-	}
-}
-
-onMounted(loadJudges)
 </script>
 
 <template>
@@ -44,14 +35,14 @@ onMounted(loadJudges)
 					<div class="header-cell" role="columnheader">Actions</div>
 				</div>
 
-				<div v-if="isLoading" class="table-message" role="status">Loading judges...</div>
-				<div v-else-if="errorMessage" class="table-message error-message" role="alert">
-					{{ errorMessage }}
+				<div v-if="props.isLoading" class="table-message" role="status">Loading judges...</div>
+				<div v-else-if="props.errorMessage" class="table-message error-message" role="alert">
+					{{ props.errorMessage }}
 				</div>
-				<div v-else-if="judges.length === 0" class="table-message">No judges found</div>
+				<div v-else-if="props.judges.length === 0" class="table-message">No judges found</div>
 
 				<div v-else class="judge-rows" role="rowgroup">
-					<div v-for="(judge, index) in judges" :key="judge._id" class="judge-row" role="row">
+					<div v-for="(judge, index) in props.judges" :key="judge._id" class="judge-row" role="row">
 						<div class="judge-number" role="cell">{{ index + 1 }}</div>
 						<div class="judge-name" role="cell">{{ [judge.firstName, judge.lastName].filter(Boolean).join(' ') }}</div>
 						<div class="judge-username" role="cell">{{ judge.username }}</div>
