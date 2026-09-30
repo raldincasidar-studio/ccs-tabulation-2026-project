@@ -43,8 +43,8 @@ const route = useRoute();
 const navigation = [
   { label: "DASHBOARD", icon: LayoutGrid, to: "/admin" },
   { label: "CONFIGURATIONS", icon: Settings2, to: "/admin" },
-  { label: "MANAGEMENT", icon: BriefcaseBusiness, to: "/admin/contestants" },
-  { label: "CONTESTANTS", icon: Users, to: "/admin/add-contestant" },
+  { label: "MANAGEMENT", icon: BriefcaseBusiness, to: "/admin" },
+  { label: "CONTESTANTS", icon: Users, to: "/admin/contestants" },
   { label: "REPORTS", icon: BarChart3, to: "/admin" },
 ];
 

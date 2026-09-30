@@ -58,6 +58,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportState);
 });
 
+function goToAddContestant() {
+  router.push('/admin/add-contestant');
+}
+
 function handleLogout() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
@@ -106,15 +110,13 @@ function handleLogout() {
 
       <main id="contestants" class="main-content">
         <div class="dashboard-content">
-          <section class="w-full bg-[#edf2fb] p-6 md:p-8">
-        <div class="mx-auto max-w-6xl">
-          <header class="page-header">
+          <header class="management-banner">
             <h1>CONTESTANT MANAGEMENT</h1>
           </header>
 
           <div class="contestant-management-list">
             <div class="management-toolbar">
-              <button class="management-add" type="button">+ Add</button>
+              <button class="management-add" type="button" @click="goToAddContestant">+ Add</button>
             </div>
 
             <div v-if="loading" class="management-state">
@@ -173,8 +175,6 @@ function handleLogout() {
             </div>
           </div>
         </div>
-      </section>
-        </div>
       </main>
     </div>
   </div>
@@ -201,58 +201,58 @@ function handleLogout() {
   justify-content: center;
   min-height: calc(100vh - 24px);
   margin-left: var(--sidebar-width);
-  padding: 24px 32px 42px;
+  padding: clamp(22px, 2.5vw, 56px) clamp(18px, 2.8vw, 58px) 56px;
   transition: margin-left 0.25s ease;
 }
 
 .dashboard-content {
   width: 100%;
-  max-width: 1280px;
+  max-width: 1040px;
   margin: 0 auto;
   box-sizing: border-box;
 }
 
-.page-header {
+.management-banner {
   position: relative;
   display: flex;
-  width: 100%;
-  min-height: 128px;
-  align-items: center;
+  width: min(100%, 965px);
+  height: clamp(120px, 13vw, 170px);
+  align-items: flex-start;
   overflow: hidden;
-  padding: 0 20px;
-  border: 1px solid rgb(116 148 255 / 22%);
-  border-radius: 10px;
-  background-color: #080a51;
-  background-image: var(--star-image), var(--star-image), var(--star-image), var(--star-image), linear-gradient(110deg, #080a47, #1317a5 54%, #080a47);
+  padding: clamp(18px, 2vw, 27px) clamp(18px, 2vw, 24px);
+  border-radius: 17px;
+  background-color: #09065d;
+  background-image:
+    var(--star-image), var(--star-image), var(--star-image), var(--star-image),
+    linear-gradient(110deg, #09065d 0%, #111075 54%, #1710b5 100%);
   background-repeat: no-repeat;
-  background-position: 39% 24%, 58% 76%, 76% 30%, 93% 67%, center;
-  background-size: 17px 17px, 12px 12px, 15px 15px, 10px 10px, auto;
-  box-shadow: 0 3px 10px rgb(8 12 65 / 12%);
-  color: #fff;
+  background-position: 39% 23%, 35% 66%, 72% 71%, 91% 43%, center;
+  background-size: 17px 17px, 12px 12px, 12px 12px, 10px 10px, auto;
+  box-sizing: border-box;
 }
 
-.page-header::before {
+.management-banner::before {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(115deg, transparent 47%, rgb(117 155 255 / 30%) 47.15%, transparent 47.4%),
-    linear-gradient(22deg, transparent 37%, rgb(117 155 255 / 24%) 37.15%, transparent 37.4%),
-    linear-gradient(155deg, transparent 74%, rgb(117 155 255 / 20%) 74.15%, transparent 74.4%);
+  background-image:
+    linear-gradient(32deg, transparent 31%, rgb(161 184 255 / 35%) 31.1%, transparent 31.25%),
+    linear-gradient(122deg, transparent 82%, rgb(161 184 255 / 30%) 82.1%, transparent 82.25%);
   content: '';
   pointer-events: none;
 }
 
-.page-header h1 {
+.management-banner h1 {
   position: relative;
   z-index: 1;
   margin: 0;
-  transform: translateY(-18px);
-  color: #e4eaff;
+  color: #dedfff;
   font-family: 'Croparo', sans-serif;
-  font-size: 34px;
-  font-weight: 400;
-  line-height: 100%;
-  letter-spacing: 0.08em;
-  text-shadow: 0 0 7px rgb(142 171 255 / 40%);
+  font-size: clamp(2rem, 3vw, 3.1rem);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+  -webkit-text-stroke: 0.35px #fff;
+  text-shadow: 0 0 5px rgb(200 203 255 / 35%);
 }
 
 .mobile-hamburger {
@@ -291,7 +291,8 @@ function handleLogout() {
 }
 
 .contestant-management-list {
-  margin-top: 16px;
+  width: min(100%, 965px);
+  margin: 16px 0 0;
 }
 
 .management-toolbar {
@@ -299,14 +300,15 @@ function handleLogout() {
   min-height: 30px;
   justify-content: flex-end;
   align-items: flex-start;
+  margin-top: 12px;
 }
 
 .management-add {
   display: inline-flex;
-  min-height: 28px;
+  min-height: 30px;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
+  padding: 0 14px;
   border: 1px solid #062f9b;
   border-radius: 4px;
   background: #073dd0;
@@ -314,9 +316,10 @@ function handleLogout() {
   color: #fff;
   cursor: pointer;
   font-family: 'Poppins', sans-serif;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.2;
+  transform: translateY(-1px);
 }
 
 .management-add:hover {
@@ -455,6 +458,18 @@ function handleLogout() {
   color: #ff0019;
 }
 
+@media (max-width: 1100px) {
+  .main-content {
+    padding-right: 24px;
+    padding-left: 24px;
+  }
+
+  .dashboard-content,
+  .management-banner {
+    width: 100%;
+  }
+}
+
 @media (max-width: 767px) {
   .mobile-hamburger {
     display: flex;
@@ -468,12 +483,26 @@ function handleLogout() {
   .main-content {
     width: 100%;
     margin-left: 0;
-    padding: 72px 16px 30px;
+    padding: 78px 18px 36px;
     overflow: visible;
   }
 
   .dashboard-content {
     max-width: 100%;
+  }
+
+  .management-banner {
+    height: auto;
+    min-height: 132px;
+    align-items: center;
+    padding: 20px 18px;
+    border-radius: 14px;
+  }
+
+  .management-banner h1 {
+    font-size: clamp(1.8rem, 7vw, 3.2rem);
+    line-height: 1.05;
+    letter-spacing: 0.04em;
   }
 }
 
@@ -497,25 +526,4 @@ function handleLogout() {
   }
 }
 
-@media (max-width: 520px) {
-  .page-header {
-    min-height: 76px;
-    margin-top: 6px;
-    padding: 0 16px;
-    border-radius: 10px;
-    background: linear-gradient(90deg, #0b0d52 0%, #1b39a8 100%);
-    box-shadow: inset 0 0 0 1px rgb(134 168 255 / 28%);
-    justify-content: center;
-    text-align: center;
-  }
-
-  .page-header h1 {
-    display: block;
-    width: 100%;
-    transform: none;
-    font-size: clamp(1.2rem, 6.5vw, 2.3rem);
-    letter-spacing: 0.05em;
-    text-align: center;
-  }
-}
 </style>
