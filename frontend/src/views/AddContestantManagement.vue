@@ -34,6 +34,7 @@ const contestant = ref({
 	group: "",
 	image: "",
 });
+const isEditing = computed(() => Boolean(route.params.id));
 
 const hasValidContestant = computed(() =>
 	contestant.value.name.trim() &&
@@ -177,6 +178,8 @@ onMounted(() => {
 	window.addEventListener("resize", updateViewportState);
 	window.addEventListener("scroll", handleScrollState, { passive: true });
 });
+
+watch(() => route.params.id, loadContestant, { immediate: true });
 
 onBeforeUnmount(() => {
 	window.removeEventListener("resize", updateViewportState);
@@ -417,7 +420,7 @@ onBeforeUnmount(() => {
 	grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
 	align-items: start;
 	column-gap: clamp(18px, 2.8vw, 39px);
-	margin-top: 58px;
+	margin-top: 78px;
 	padding-left: 6px;
 	width: min(100%, 920px);
 }
@@ -519,7 +522,8 @@ onBeforeUnmount(() => {
 	box-sizing: border-box;
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
 	outline-color: #7770ed;
 }
 
@@ -722,10 +726,6 @@ onBeforeUnmount(() => {
 	.main-content { padding-right: 12px; padding-left: 12px; }
 	.management-banner { min-height: 105px; padding: 18px 16px; }
 	.management-banner h1 { font-size: clamp(1.55rem, 8.2vw, 2.5rem); }
-	.category-select-wrap {
-		width: 100%;
-		max-width: 100%;
-	}
 	.photo-frame {
 		width: 100%;
 		height: 250px;

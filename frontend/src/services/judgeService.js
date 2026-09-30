@@ -1,33 +1,26 @@
 import api from './api'
 
 export const judgeService = {
-  // Fetches current live category, active contestant, rubrics, and existing scores
+  // 7.1 GET /api/v1/scores/live-sheet
+  // Fetches current category, active contestant, rubrics, and existingScores
   async getLiveSheet() {
     const response = await api.get('/scores/live-sheet')
     return response.data !== undefined ? response.data : response
   },
 
-
+  // 4.1 GET /api/v1/categories
   async getCategories() {
     try {
       const response = await api.get('/categories')
       const result = response.data !== undefined ? response.data : response
       return Array.isArray(result) ? result : (result?.data || result)
     } catch (error) {
-      console.warn('Failed to fetch categories, using defaults:', error.message || error)
-      return [
-        { id: 'playsuit', name: 'PLAYSUIT' },
-        { id: 'uniform-1', name: 'UNIFORM' },
-        { id: 'uniform-2', name: 'UNIFORM' },
-        { id: 'prod-no', name: 'PRODUCTION NO' },
-        { id: 'advocacy', name: 'ADVOCACY' },
-        { id: 'q-and-a', name: 'Q AND A' },
-        { id: 'qa-final', name: 'Q & A FINAL' },
-      ]
+      console.warn('Failed to fetch categories:', error.message || error)
+      return []
     }
   },
 
-  // Fetches all registered contestants (supports optional params e.g. { groupId })
+  // 6.1 GET /api/v1/contestants (Accepts { groupId: string })
   async getContestants(params = {}) {
     try {
       const response = await api.get('/contestants', { params })
@@ -39,7 +32,7 @@ export const judgeService = {
     }
   },
 
-  // Fetches groups (e.g. "Pageant Male", "Pageant Female") with linked categories
+  // 5.1 GET /api/v1/contestant-groups
   async getContestantGroups() {
     try {
       const response = await api.get('/contestant-groups')
@@ -51,8 +44,8 @@ export const judgeService = {
     }
   },
 
-  // Submits or updates a judge's scores for a category and contestant
-  // Expected payload: { categoryId: string, contestantId: string, rubricsScore: [{ rubricsId, score }] }
+  // 7.2 POST /api/v1/scores/submit
+  // Payload: { categoryId: string, contestantId: string, rubricsScore: [{ rubricsId, score }] }
   async submitScore(payload) {
     const response = await api.post('/scores/submit', payload)
     return response.data !== undefined ? response.data : response

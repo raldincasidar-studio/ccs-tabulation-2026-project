@@ -1,9 +1,11 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import Sidebar from "@/components/Sidebar.vue";
+import JudgeManagementTable from "@/views/JudgeManagementTable.vue";
 import starImage from "@/assets/img/star.png";
 
+const route = useRoute();
 const router = useRouter();
 const isSidebarCollapsed = ref(false);
 const isMobileSidebarOpen = ref(false);
@@ -47,11 +49,11 @@ onBeforeUnmount(() => {
 });
 
 const quickActions = [
-  "Generate Reports",
-  "View Live Scores",
-  "Generate Reports",
-  "View Live Scores",
-  "Generate Reports",
+  { label: "Generate Reports", route: "/reports" },
+  { label: "View Live Scores", route: "/judge/live" },
+  { label: "Generate Reports", route: "/reports" },
+  { label: "View Live Scores", route: "/judge/live" },
+  { label: "Generate Reports", route: "/reports" },
 ];
 
 const contestants = ["Japhet Bastillada", "Leonesa Salmorin", "Papap dol", "Papap dol"];
@@ -100,6 +102,7 @@ function handleLogout() {
       ></div>
 
       <Sidebar
+        :active-item="route.path === '/admin/judges' ? 'JUDGES' : 'DASHBOARD'"
         :is-mobile="isMobile"
         :is-sidebar-collapsed="isSidebarCollapsed"
         :is-mobile-sidebar-open="isMobileSidebarOpen"
@@ -111,10 +114,15 @@ function handleLogout() {
 
       <main id="dashboard" class="main-content">
         <div class="dashboard-content">
-          <header class="page-header">
-            <h1>DASHBOARD</h1>
+          <header class="page-header" :class="{ 'judge-page-header': route.path === '/admin/judges' }">
+            <h1>{{ route.path === "/admin/judges" ? "JUDGE MANAGEMENT" : "DASHBOARD" }}</h1>
           </header>
 
+          <div v-if="route.path === '/admin/judges'" class="judge-management-content">
+            <JudgeManagementTable />
+          </div>
+
+          <template v-else>
           <div class="system-status">
             <span>System is on <strong>configuration mode</strong></span>
             <button
@@ -149,10 +157,11 @@ function handleLogout() {
               <h2 id="quick-actions-title">QUICK ACTIONS</h2>
               <button
                 v-for="(action, index) in quickActions"
-                :key="`${action}-${index}`"
+                :key="`${action.label}-${index}`"
                 type="button"
+                @click="router.push(action.route)"
               >
-                {{ action }}
+                {{ action.label }}
               </button>
             </section>
 
@@ -189,6 +198,7 @@ function handleLogout() {
               </div>
             </section>
           </div>
+          </template>
         </div>
       </main>
     </div>
@@ -227,6 +237,10 @@ function handleLogout() {
   box-sizing: border-box;
 }
 
+.judge-management-content {
+  margin-top: 80px;
+}
+
 .page-header {
   position: relative;
   display: flex;
@@ -244,6 +258,16 @@ function handleLogout() {
   background-size: 17px 17px, 12px 12px, 15px 15px, 10px 10px, auto;
   box-shadow: 0 3px 10px rgb(8 12 65 / 12%);
   color: #fff;
+}
+
+.page-header.judge-page-header {
+  top: 6px;
+  left: 29px;
+  width: 985px;
+  height: 200px;
+  min-height: 200px;
+  flex: 0 0 985px;
+  border-radius: 17px;
 }
 
 .page-header::before {
@@ -267,6 +291,10 @@ function handleLogout() {
   line-height: 100%;
   letter-spacing: 0;
   text-shadow: 0 0 7px rgb(142 171 255 / 40%);
+}
+
+.page-header.judge-page-header h1 {
+  transform: translateY(-40px);
 }
 
 .system-status {

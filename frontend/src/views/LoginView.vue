@@ -65,7 +65,7 @@ async function handleLogin() {
       <form @submit.prevent="handleLogin" class="w-full space-y-4 sm:space-y-5">
         <!-- Username Field -->
         <div>
-          <label class="block font-croparo text-[12px] sm:text-[14px] text-hollow-inline uppercase mb-1 ml-1 tracking-wider">
+          <label class="block font-croparo text-[13px] sm:text-[15px] text-hollow-inline uppercase mb-1.5 ml-1 tracking-[0.22em]">
             USERNAME
           </label>
           <div class="relative">
@@ -82,7 +82,7 @@ async function handleLogin() {
 
         <!-- Password Field -->
         <div>
-          <label class="block font-croparo text-[12px] sm:text-[14px] text-hollow-inline uppercase mb-1 ml-1 tracking-wider">
+          <label class="block font-croparo text-[13px] sm:text-[15px] text-hollow-inline uppercase mb-1.5 ml-1 tracking-[0.22em]">
             PASSWORD
           </label>
           <div class="relative flex items-center">
@@ -131,3 +131,13 @@ async function handleLogin() {
     </div>
   </main>
 </template>
+
+<style scoped>
+.text-hollow-inline {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  -webkit-text-stroke: 0px transparent !important;
+  /* Soft white neon bloom matching the reference image */
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.45), 0 0 2px rgba(255, 255, 255, 0.85);
+}
+</style>
