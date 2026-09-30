@@ -1,4 +1,5 @@
 <script setup>
+import { markRaw } from "vue";
 import { useRouter } from "vue-router";
 import dashboardImage from "@/assets/img/logo.png.png";
 import oneStarImage from "@/assets/img/one star.png";
@@ -8,6 +9,7 @@ import {
   BriefcaseBusiness,
   LayoutGrid,
   LogOut,
+  Radio,
   Settings2,
   Users,
 } from "lucide-vue-next";
@@ -40,12 +42,14 @@ const emit = defineEmits([
 
 const router = useRouter();
 
+// markRaw prevents Vue's reactivity system from wrapping component VNodes
 const navigation = [
-  { label: "DASHBOARD", icon: LayoutGrid, route: "/admin" },
-  { label: "CONFIGURATIONS", icon: Settings2, route: "/admin/configurations" },
-  { label: "JUDGES", icon: BriefcaseBusiness, route: "/admin/judges" },
-  { label: "CONTESTANTS", icon: Users, route: "/admin/contestants" },
-  { label: "REPORTS", icon: BarChart3, route: "/reports" },
+  { label: "DASHBOARD", icon: markRaw(LayoutGrid), route: "/admin" },
+  { label: "CONFIGURATIONS", icon: markRaw(Settings2), route: "/admin/configurations" },
+  { label: "LIVE CONTROLS", icon: markRaw(Radio), route: "/admin/live-controls" },
+  { label: "JUDGES", icon: markRaw(BriefcaseBusiness), route: "/admin/judges" },
+  { label: "CONTESTANTS", icon: markRaw(Users), route: "/admin/contestants" },
+  { label: "REPORTS", icon: markRaw(BarChart3), route: "/reports" },
 ];
 
 function handleNavigation(item) {
