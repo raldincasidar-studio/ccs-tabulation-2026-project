@@ -411,13 +411,12 @@ onBeforeUnmount(() => {
   justify-content: center;
   min-height: calc(100vh - 24px);
   margin-left: var(--sidebar-width);
-  padding: 24px 32px 42px;
+  padding: clamp(22px, 2.5vw, 56px) clamp(18px, 2.8vw, 58px) 56px;
   transition: margin-left 0.25s ease;
 }
 
 .dashboard-content {
-  width: 100%;
-  max-width: 1280px;
+  width: min(100%, 1040px);
   margin: 0 auto;
   box-sizing: border-box;
 }

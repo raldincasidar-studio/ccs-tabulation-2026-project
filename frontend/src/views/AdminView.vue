@@ -1,17 +1,27 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import api from "@/services/api";
 import Sidebar from "@/components/Sidebar.vue";
 import JudgeManagementView from "@/views/JudgeManagementView.vue";
 import starImage from "@/assets/img/star.png";
+import imgPlaceholder from "@/assets/img/img-placeholder.png";
 
 const route = useRoute();
 const router = useRouter();
+
 const isSidebarCollapsed = ref(false);
 const isMobileSidebarOpen = ref(false);
 const isMobile = ref(false);
-const isSystemOn = ref(false);
+const isConfigurationMode = ref(true);
 const isMenuHidden = ref(false);
+
+// Dynamic Dashboard Data States
+const judgesCount = ref(0);
+const contestantsCount = ref(0);
+const categoriesCount = ref(0);
+const displayedGroups = ref([]);
+const isLoadingData = ref(false);
 
 function updateViewportState() {
   const mobileMode = window.innerWidth < 768;
@@ -36,9 +46,127 @@ function handleScrollState() {
   isMenuHidden.value = scrollTop > 12;
 }
 
+// Fetch all dashboard data adhering to the contract specification
+async function fetchDashboardData() {
+  isLoadingData.value = true;
+  try {
+    // 1. Fetch Global Configuration (Counts & Status)
+    try {
+      const configRes = await api.get("/configuration");
+      const configData = configRes.data?.data || configRes.data || {};
+
+      if (configData.stats) {
+        judgesCount.value = configData.stats.totalJudges ?? 0;
+        contestantsCount.value = configData.stats.totalContestants ?? 0;
+      }
+      if (typeof configData.isConfigurationMode === "boolean") {
+        isConfigurationMode.value = configData.isConfigurationMode;
+      }
+    } catch (err) {
+      console.warn("Failed to fetch configuration:", err.message);
+    }
+
+    // 2. Fetch Categories Count
+    try {
+      const catRes = await api.get("/categories");
+      const catData = catRes.data?.data || catRes.data || [];
+      categoriesCount.value = Array.isArray(catData) ? catData.length : 0;
+    } catch (err) {
+      console.warn("Failed to fetch categories:", err.message);
+    }
+
+    // 3. Fetch Contestants & Groups
+    try {
+      const [groupsRes, contestantsRes] = await Promise.allSettled([
+        api.get("/contestant-groups"),
+        api.get("/contestants"),
+      ]);
+
+      const groups =
+        groupsRes.status === "fulfilled"
+          ? groupsRes.value.data?.data || groupsRes.value.data || []
+          : [];
+
+      const allContestants =
+        contestantsRes.status === "fulfilled"
+          ? contestantsRes.value.data?.data || contestantsRes.value.data || []
+          : [];
+
+      // Create lookup map for photos and information
+      const contestantMap = new Map();
+      allContestants.forEach((c) => {
+        if (c._id) contestantMap.set(c._id, c);
+        if (c.name) contestantMap.set(c.name.toLowerCase().trim(), c);
+      });
+
+      // 4. Fetch ranking sheet per group
+      const groupsWithRankings = await Promise.all(
+        groups.map(async (group) => {
+          let rows = [];
+          try {
+            // Section 8.3: /reports/paper/final-ranking-sheet?groupId=...
+            const reportRes = await api.get("/reports/paper/final-ranking-sheet", {
+              params: { groupId: group._id },
+            });
+            const reportData = reportRes.data?.data || reportRes.data || {};
+            rows = reportData.rows || [];
+          } catch {
+            // Fallback to registered contestants if scores are not yet available (404)
+            rows = allContestants
+              .filter((c) => (c.group?._id || c.group) === group._id)
+              .map((c) => ({
+                rank: null,
+                nameAndLabel: `${c.label ? c.label + " - " : ""}${c.name}`,
+                contestantId: c._id,
+                contestantName: c.name,
+                image: c.image,
+                final_candidate_score: 0,
+              }));
+          }
+
+          // Format items and match contestant photo with fallback state
+          const formattedRankings = rows.map((item) => {
+            const rawName = item.nameAndLabel
+              ? item.nameAndLabel.split("-").pop().trim()
+              : item.name || item.contestantName || "";
+
+            const matchedContestant =
+              (item.contestantId && contestantMap.get(item.contestantId)) ||
+              contestantMap.get(rawName.toLowerCase()) ||
+              {};
+
+            return {
+              rank: item.rank || null,
+              name: rawName || item.nameAndLabel || "Candidate",
+              score: item.final_candidate_score ?? 0,
+              image: item.image || matchedContestant.image || "",
+              imageFailed: false, // Flag used to toggle fallback avatar on 404
+            };
+          });
+
+          return {
+            id: group._id,
+            name: group.name,
+            rankings: formattedRankings,
+          };
+        })
+      );
+
+      displayedGroups.value = groupsWithRankings;
+    } catch (err) {
+      console.warn("Failed to fetch ranking sheet data:", err.message);
+    }
+  } catch (error) {
+    console.error("Dashboard data load error:", error);
+  } finally {
+    isLoadingData.value = false;
+  }
+}
+
 onMounted(() => {
   updateViewportState();
   handleScrollState();
+  fetchDashboardData();
   window.addEventListener("resize", updateViewportState);
   window.addEventListener("scroll", handleScrollState, { passive: true });
 });
@@ -50,16 +178,14 @@ onBeforeUnmount(() => {
 
 const quickActions = [
   { label: "Generate Reports", route: "/reports" },
-  { label: "View Live Scores", route: "/judge/live" },
-  { label: "Generate Reports", route: "/reports" },
-  { label: "View Live Scores", route: "/judge/live" },
-  { label: "Generate Reports", route: "/reports" },
+  { label: "View Live Scores", route: "/reports" },
+  { label: "Add Contestants", route: "/admin/add-contestant" },
+  { label: "Judge Management", route: "/admin/judges" },
+  { label: "Event Configuration", route: "/admin/configurations" },
 ];
 
-const contestants = ["Japhet Bastillada", "Leonesa Salmorin", "Papap dol", "Papap dol"];
-
 function toggleSystemStatus() {
-  isSystemOn.value = !isSystemOn.value;
+  isConfigurationMode.value = !isConfigurationMode.value;
 }
 
 function handleLogout() {
@@ -123,81 +249,119 @@ function handleLogout() {
           </div>
 
           <template v-else>
-          <div class="system-status">
-            <span>System is on <strong>configuration mode</strong></span>
-            <button
-              class="status-toggle"
-              :class="{ 'is-on': isSystemOn }"
-              type="button"
-              :aria-label="isSystemOn ? 'System is on' : 'System is off'"
-              :aria-pressed="isSystemOn"
-              @click="toggleSystemStatus"
-            >
-              <span></span>
-            </button>
-          </div>
-
-          <section class="statistics" aria-label="Dashboard statistics">
-            <article class="stat-card">
-              <strong>5</strong>
-              <span>JUDGES</span>
-            </article>
-            <article class="stat-card">
-              <strong>5</strong>
-              <span>CONTESTANTS</span>
-            </article>
-            <article class="stat-card">
-              <strong>2</strong>
-              <span>COMPETITION</span>
-            </article>
-          </section>
-
-          <div class="dashboard-lower">
-            <section class="quick-actions" aria-labelledby="quick-actions-title">
-              <h2 id="quick-actions-title">QUICK ACTIONS</h2>
+            <!-- System Status -->
+            <div class="system-status">
+              <span>
+                System is on
+                <strong>{{ isConfigurationMode ? "configuration mode" : "live mode" }}</strong>
+              </span>
               <button
-                v-for="(action, index) in quickActions"
-                :key="`${action.label}-${index}`"
+                class="status-toggle"
+                :class="{ 'is-on': !isConfigurationMode }"
                 type="button"
-                @click="router.push(action.route)"
+                :aria-label="isConfigurationMode ? 'System is in configuration mode' : 'System is live'"
+                :aria-pressed="!isConfigurationMode"
+                @click="toggleSystemStatus"
               >
-                {{ action.label }}
+                <span></span>
               </button>
+            </div>
+
+            <!-- Dynamic Statistics Cards -->
+            <section class="statistics" aria-label="Dashboard statistics">
+              <article class="stat-card">
+                <strong>{{ judgesCount }}</strong>
+                <span>JUDGES</span>
+              </article>
+              <article class="stat-card">
+                <strong>{{ contestantsCount }}</strong>
+                <span>CONTESTANTS</span>
+              </article>
+              <article class="stat-card">
+                <strong>{{ categoriesCount }}</strong>
+                <span>CATEGORIES</span>
+              </article>
             </section>
 
-            <section class="live-scores" aria-label="Live contestant scores">
-              <h2 class="live-heading"><span></span>LIVE</h2>
-              <div class="contestant-groups">
-                <section
-                  v-for="group in ['Mrs.', 'Mr.']"
-                  :key="group"
-                  class="contestant-section"
-                  :aria-label="`${group} contestants`"
+            <div class="dashboard-lower">
+              <!-- Quick Actions -->
+              <section class="quick-actions" aria-labelledby="quick-actions-title">
+                <h2 id="quick-actions-title">QUICK ACTIONS</h2>
+                <button
+                  v-for="(action, index) in quickActions"
+                  :key="`${action.label}-${index}`"
+                  type="button"
+                  @click="router.push(action.route)"
                 >
-                  <h3>{{ group }}</h3>
-                  <article
-                    v-for="(name, index) in contestants"
-                    :key="`${group}-${index}`"
-                    class="contestant-row"
+                  {{ action.label }}
+                </button>
+              </section>
+
+              <!-- Final Ranking / Live Scores Dynamic List -->
+              <section class="live-scores" aria-label="Live contestant scores">
+                <h2 class="live-heading"><span></span>FINAL RANKING</h2>
+
+                <div v-if="displayedGroups.length === 0" class="empty-state">
+                  <p>{{ isLoadingData ? "Loading rankings..." : "No contestant group data found." }}</p>
+                </div>
+
+                <div v-else class="contestant-groups">
+                  <section
+                    v-for="group in displayedGroups"
+                    :key="group.id"
+                    class="contestant-section"
                   >
-                    <div class="contestant-photo" aria-hidden="true">
-                      <span></span>
-                      <i></i>
+                    <h3>{{ group.name }}</h3>
+
+                    <div v-if="group.rankings.length === 0" class="no-contestants">
+                      No candidates listed for this group.
                     </div>
-                    <div class="contestant-details">
-                      <div class="contestant-line">
-                        <span>{{ name }}</span>
-                        <strong>0% Votes</strong>
+
+                    <article
+                      v-for="(contestant, cIndex) in group.rankings"
+                      :key="`${group.id}-${cIndex}`"
+                      class="contestant-row"
+                    >
+                      <!-- Candidate Photo -->
+                      <div class="contestant-photo" aria-hidden="true">
+                        <img
+                          v-if="contestant.image && !contestant.imageFailed"
+                          :src="contestant.image"
+                          :alt="contestant.name"
+                          class="candidate-img"
+                          loading="lazy"
+                          @error="contestant.imageFailed = true"
+                        />
+                        <img
+                          v-else
+                          :src="imgPlaceholder"
+                          alt="Contestant placeholder"
+                          class="candidate-img placeholder-img"
+                        />
                       </div>
-                      <div class="vote-track" aria-hidden="true">
-                        <span :class="`progress-fill-${index + 1}`"></span>
+
+                      <div class="contestant-details">
+                        <div class="contestant-line">
+                          <span>
+                            <strong v-if="contestant.rank" class="rank-tag">#{{ contestant.rank }}</strong>
+                            {{ contestant.name }}
+                          </span>
+                          <strong>
+                            {{ contestant.score > 0 ? `${contestant.score}%` : "0% Votes" }}
+                          </strong>
+                        </div>
+                        <div class="vote-track" aria-hidden="true">
+                          <span
+                            class="progress-fill"
+                            :style="{ width: `${Math.min(Math.max(contestant.score, 0), 100)}%` }"
+                          ></span>
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                </section>
-              </div>
-            </section>
-          </div>
+                    </article>
+                  </section>
+                </div>
+              </section>
+            </div>
           </template>
         </div>
       </main>
@@ -226,13 +390,12 @@ function handleLogout() {
   justify-content: center;
   min-height: calc(100vh - 24px);
   margin-left: var(--sidebar-width);
-  padding: 24px 32px 42px;
+  padding: clamp(22px, 2.5vw, 56px) clamp(18px, 2.8vw, 58px) 56px;
   transition: margin-left 0.25s ease;
 }
 
 .dashboard-content {
-  width: 100%;
-  max-width: 1280px;
+  width: min(100%, 1040px);
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -245,14 +408,15 @@ function handleLogout() {
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 102px;
+  min-height: 130px;
   align-items: center;
   overflow: hidden;
   padding: 0 20px;
   border: 1px solid rgb(116 148 255 / 22%);
   border-radius: 10px;
   background-color: #080a51;
-  background-image: var(--star-image), var(--star-image), var(--star-image), var(--star-image), linear-gradient(110deg, #080a47, #1317a5 54%, #080a47);
+  background-image: var(--star-image), var(--star-image), var(--star-image), var(--star-image),
+    linear-gradient(110deg, #080a47, #1317a5 54%, #080a47);
   background-repeat: no-repeat;
   background-position: 39% 24%, 58% 76%, 76% 30%, 93% 67%, center;
   background-size: 17px 17px, 12px 12px, 15px 15px, 10px 10px, auto;
@@ -479,18 +643,26 @@ function handleLogout() {
   box-shadow: 0 0 4px rgb(227 38 55 / 28%);
 }
 
+.empty-state,
+.no-contestants {
+  padding: 12px;
+  color: #65719e;
+  font-family: "Croparo", sans-serif;
+  font-size: 14px;
+}
+
 .contestant-groups {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
 }
 
 .contestant-section h3 {
-  margin: 0 0 8px;
+  margin: 0 0 14px;
   color: #58608b;
   font-family: "Croparo", sans-serif;
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -498,48 +670,55 @@ function handleLogout() {
   display: flex;
   width: 100%;
   max-width: 100%;
-  min-height: 58px;
+  min-height: 70px;
   align-items: center;
-  gap: 14px;
-  margin: 0 0 8px;
-  padding: 8px 6px 8px 0;
+  gap: 16px;
+  margin: 0 0 14px;
+  padding: 6px 0;
   border: 0;
-  border-radius: 0;
   background: transparent;
-  box-shadow: none;
 }
 
+/* Photo Container: Exact Figma 135deg gradient (Dark Blue top-left to Grey bottom-right) */
 .contestant-photo {
   position: relative;
-  width: 44px;
-  height: 44px;
-  flex: 0 0 44px;
-  overflow: hidden;
-  border: 1px solid #bec6da;
-  border-radius: 6px;
-  background: linear-gradient(145deg, #a9c4ee 0 44%, #d85f5b 45% 70%, #d2a742 71% 100%);
-  box-shadow: 0 1px 2px rgb(16 19 61 / 18%);
+  width: 60px;
+  height: 60px;
+  flex: 0 0 60px;
+  overflow: visible; /* Allows crown/head to break out */
+  border-radius: 12px;
+  background: linear-gradient(135deg, #011e60 0%, #d9d9d9 100%);
+  box-shadow: 0 4px 10px rgb(1 30 96 / 25%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
 }
 
-.contestant-photo span {
-  position: absolute;
-  top: 5px;
-  left: 11px;
-  width: 9px;
-  height: 11px;
-  border-radius: 48% 48% 44% 44%;
-  background: #d6a07c;
-  box-shadow: 0 -3px 0 -1px #30231f;
+/* Uploaded real contestant images */
+.candidate-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
 }
 
-.contestant-photo i {
+/* Placeholder Pageant Model: scaled & shifted to match Figma overlap */
+/* Placeholder Pageant Model: perfectly centered & scaled */
+.candidate-img.placeholder-img {
   position: absolute;
-  bottom: -3px;
-  left: 5px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50% 50% 0 0;
-  background: #bb2935;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-75%) scale(2.7);
+  transform-origin: bottom center;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  object-position: bottom center;
+  border-radius: 0;
+  pointer-events: none;
 }
 
 .contestant-details {
@@ -548,7 +727,6 @@ function handleLogout() {
   flex: 1 1 auto;
   flex-direction: column;
   justify-content: center;
-  max-width: 100%;
 }
 
 .contestant-line {
@@ -560,8 +738,11 @@ function handleLogout() {
   font-family: "Croparo", sans-serif;
   font-size: 15px;
   line-height: 1.2;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+}
+
+.rank-tag {
+  color: #10245f;
+  margin-right: 6px;
 }
 
 .contestant-line span {
@@ -582,7 +763,6 @@ function handleLogout() {
   font-family: "Croparo", sans-serif;
   font-size: 15px;
   font-weight: 500;
-  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
@@ -595,17 +775,13 @@ function handleLogout() {
   background: #dfe3ea;
 }
 
-.vote-track span {
+.vote-track .progress-fill {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #0f2c88 0%, #0c1d72 100%);
+  background: linear-gradient(90deg, #0f2c88 0%, #1737a8 100%);
+  transition: width 0.4s ease;
 }
-
-.progress-fill-1 { width: 30%; }
-.progress-fill-2 { width: 66%; }
-.progress-fill-3,
-.progress-fill-4 { width: 92%; }
 
 .mobile-hamburger {
   position: fixed;
@@ -625,7 +801,6 @@ function handleLogout() {
   background: #08065a;
   box-sizing: border-box;
   cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 .mobile-hamburger span {
@@ -660,177 +835,22 @@ function handleLogout() {
     display: flex;
   }
 
-  .mobile-hamburger.is-hidden {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(-8px);
-  }
-
   .admin-dashboard {
     --sidebar-width: 0px;
-    overflow: visible;
   }
 
   .main-content {
     width: 100%;
     margin-left: 0;
     padding-top: 72px;
-    overflow: visible;
   }
-
-  .dashboard-content {
-    max-width: 100%;
-  }
-}
-
-@media (max-width: 680px) {
-  .admin-frame { padding: 5px; }
-  .admin-dashboard,
-  .main-content { min-height: calc(100vh - 10px); }
 }
 
 @media (max-width: 520px) {
-  .admin-frame {
-    padding: 0;
-  }
-
-  .admin-dashboard {
-    min-height: 100vh;
-  }
-
-  .main-content {
-    min-height: 100vh;
-    margin-left: 0;
-    padding: 10px 8px 24px;
-  }
-
-  .dashboard-content {
-    width: 100%;
-  }
-
-  .page-header {
-    display: flex;
-    min-height: 66px;
-    margin-top: 6px;
-    padding: 0 16px;
-    border-radius: 10px;
-    background: linear-gradient(90deg, #0b0d52 0%, #1b39a8 100%);
-    box-shadow: inset 0 0 0 1px rgb(134 168 255 / 28%);
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-  }
-
-  .page-header h1 {
-    display: block;
-    width: 100%;
-    font-size: clamp(1.4rem, 6vw, 2.2rem);
-    letter-spacing: 0.08em;
-    text-align: center;
-  }
-
-  .system-status {
-    width: 100%;
-    min-height: 46px;
-    padding: 6px 12px;
-    font-size: 0.78rem;
-  }
-
-  .statistics {
-    width: 100%;
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .stat-card {
-    min-height: 72px;
-    padding: 10px 14px;
-  }
-
-  .stat-card strong {
-    font-size: 2.1rem;
-  }
-
-  .stat-card span {
-    font-size: 0.9rem;
-  }
-
-  .dashboard-lower {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
-    margin-top: 24px;
-  }
-
-  .quick-actions h2 {
-    font-size: 1rem;
-  }
-
-  .quick-actions button {
-    width: 100%;
-    min-height: 44px;
-    font-size: 0.92rem;
-  }
-
-  .live-scores {
-    width: 100%;
-  }
-
-  .live-heading {
-    gap: 5px;
-    margin: 0 0 12px;
-    font-size: 1rem;
-  }
-
-  .contestant-groups {
-    gap: 12px;
-  }
-
-  .contestant-section h3 {
-    margin: 0 0 7px;
-    font-size: 0.9rem;
-  }
-
-  .contestant-row {
-    width: 100%;
-    max-width: 100%;
-    height: auto;
-    min-height: 58px;
-    gap: 10px;
-    margin: 0 0 10px;
-    padding: 0;
-  }
-
   .contestant-photo {
-    width: 38px;
-    height: 38px;
-    flex-basis: 38px;
-  }
-
-  .contestant-details {
-    max-width: none;
-    width: 100%;
-    min-width: 0;
-  }
-
-  .contestant-line {
-    gap: 8px;
-    font-size: 0.8rem;
-  }
-
-  .contestant-line span {
-    font-size: 0.9rem;
-  }
-
-  .contestant-line strong {
-    font-size: 0.75rem;
-    text-align: right;
-  }
-
-  .vote-track {
-    width: 100%;
-    height: 10px;
-    margin-top: 5px;
+    width: 50px;
+    height: 50px;
+    flex: 0 0 50px;
   }
 }
 </style>
-

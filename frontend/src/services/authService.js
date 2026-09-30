@@ -9,9 +9,10 @@ export async function login(username, password) {
 
 export async function logout() {
   try {
-    await api.post('/auth/logout');
+    const response = await api.post('/auth/logout', {});
+    return response;
   } catch (error) {
-    console.error('Logout error:', error);
+    console.warn('Logout notification to server failed:', error?.message || error);
   } finally {
     clearSession();
   }
@@ -29,6 +30,7 @@ export function clearSession() {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
   localStorage.removeItem('expiresAt');
+  sessionStorage.clear();
 }
 
 export function getCurrentUser() {
@@ -45,3 +47,12 @@ export function isAuthenticated() {
   const user = localStorage.getItem('user');
   return !!(token && user);
 }
+
+export default {
+  login,
+  logout,
+  saveSession,
+  clearSession,
+  getCurrentUser,
+  isAuthenticated,
+};
