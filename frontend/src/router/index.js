@@ -74,6 +74,12 @@ const routes = [
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
+    path: '/admin/add-contestant/edit/:id',
+    name: 'EditContestantManagement',
+    component: AddContestantManagement,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
     path: '/admin/configurations',
     name: 'Configuration',
     component: ConfigurationView,
