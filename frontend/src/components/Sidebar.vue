@@ -315,7 +315,7 @@ function handleLogout() {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding-top: 0;
+  padding-top: 78px;
   border-top: 1px solid rgb(255 255 255 / 15%);
 }
 
@@ -324,7 +324,7 @@ function handleLogout() {
 .sign-out {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: 50px;
   align-items: center;
   gap: 6px;
   padding: 0 8px 0 12px;
@@ -361,7 +361,7 @@ function handleLogout() {
 }
 
 .sidebar-link.active {
-  min-height: 35px;
+  min-height: 50px;
   color: #f5f6ff;
   background: #11156d;
 }

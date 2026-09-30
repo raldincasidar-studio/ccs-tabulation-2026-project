@@ -123,7 +123,7 @@ onBeforeUnmount(() => {
 				@click="isMobileSidebarOpen = false"
 			></div>
 			<Sidebar
-				active-item="MANAGEMENT"
+				active-item="CONTESTANTS"
 				:is-mobile="isMobile"
 				:is-sidebar-collapsed="isSidebarCollapsed"
 				:is-mobile-sidebar-open="isMobileSidebarOpen"
@@ -718,8 +718,5 @@ onBeforeUnmount(() => {
 
 @media (min-width: 768px) {
 	.photo-column { padding-top: 0; }
-	.management-shell :deep(.sidebar-navigation) { padding-top: 78px; }
-	.management-shell :deep(.sidebar-link) { min-height: 50px; }
-	.management-shell :deep(.sidebar-link.active) { min-height: 50px; }
 }
 </style>
