@@ -49,11 +49,11 @@ onBeforeUnmount(() => {
 });
 
 const quickActions = [
-  "Generate Reports",
-  "View Live Scores",
-  "Generate Reports",
-  "View Live Scores",
-  "Generate Reports",
+  { label: "Generate Reports", route: "/reports" },
+  { label: "View Live Scores", route: "/judge/live" },
+  { label: "Generate Reports", route: "/reports" },
+  { label: "View Live Scores", route: "/judge/live" },
+  { label: "Generate Reports", route: "/reports" },
 ];
 
 const contestants = ["Japhet Bastillada", "Leonesa Salmorin", "Papap dol", "Papap dol"];
@@ -157,10 +157,11 @@ function handleLogout() {
               <h2 id="quick-actions-title">QUICK ACTIONS</h2>
               <button
                 v-for="(action, index) in quickActions"
-                :key="`${action}-${index}`"
+                :key="`${action.label}-${index}`"
                 type="button"
+                @click="router.push(action.route)"
               >
-                {{ action }}
+                {{ action.label }}
               </button>
             </section>
 

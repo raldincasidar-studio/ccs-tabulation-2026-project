@@ -7,11 +7,48 @@ import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';
 import AdminView from '@/views/AdminView.vue';
 import JudgeLiveView from '@/views/JudgeLiveView.vue';
 import AddContestantManagement from '@/views/AddContestantManagement.vue';
+import ConfigurationView from '@/views/ConfigurationView.vue';
+import AddContestantGroupView from '@/views/AddContestantGroupView.vue';
+import AddCategoriesView from '@/views/AddCategoriesView.vue';
+import ReportView from '@/views/ReportView.vue';
 
 const routes = [
   {
     path: '/',
-    redirect: '/login',
+    redirect: '/reports',
+  },
+  {
+    path: '/reports',
+    name: 'reports',
+    component: ReportView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/reports',
+    name: 'admin-reports',
+    redirect: { name: 'reports' },
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/configurations',
+    name: 'configurations',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/management',
+    name: 'management',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/contestants',
+    name: 'contestants',
+    redirect: '/dashboard',
   },
   {
     path: '/login',
@@ -22,8 +59,7 @@ const routes = [
   {
     path: '/admin',
     name: 'admin',
-    component: AdminView,
-    meta: { requiresAuth: true, role: 'Admin' },
+    redirect: '/dashboard',
   },
   {
     path: '/admin/judges',
@@ -35,6 +71,36 @@ const routes = [
     path: '/admin/add-contestant',
     name: 'AddContestantManagement',
     component: AddContestantManagement,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/configurations',
+    name: 'Configuration',
+    component: ConfigurationView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+  path: '/admin/contestant-groups/add',
+  name: 'AddContestantGroup',
+  component: AddContestantGroupView,
+  meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/contestant-groups/edit/:id',
+    name: 'EditContestantGroup',
+    component: AddContestantGroupView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/categories/add',
+    name: 'AddCategories',
+    component: AddCategoriesView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/categories/edit/:id',
+    name: 'EditCategories',
+    component: AddCategoriesView,
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
