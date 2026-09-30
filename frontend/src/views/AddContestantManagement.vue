@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { ChevronRight } from "lucide-vue-next";
 import Sidebar from "@/components/Sidebar.vue";
@@ -27,7 +27,6 @@ const error = ref("");
 const saveError = ref("");
 const imagePreviewFailed = ref(false);
 const contestantId = computed(() => typeof route.query.id === "string" ? route.query.id : "");
-const isEditing = computed(() => Boolean(contestantId.value));
 const contestant = ref({
 	name: "",
 	label: "",
@@ -178,8 +177,6 @@ onMounted(() => {
 	window.addEventListener("resize", updateViewportState);
 	window.addEventListener("scroll", handleScrollState, { passive: true });
 });
-
-watch(() => route.params.id, loadContestant, { immediate: true });
 
 onBeforeUnmount(() => {
 	window.removeEventListener("resize", updateViewportState);
