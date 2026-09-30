@@ -12,6 +12,7 @@ import ConfigurationView from '@/views/ConfigurationView.vue';
 import AddContestantGroupView from '@/views/AddContestantGroupView.vue';
 import AddCategoriesView from '@/views/AddCategoriesView.vue';
 import ReportView from '@/views/ReportView.vue';
+import LiveControlsView from '@/views/LiveControlsView.vue';
 
 const routes = [
   {
@@ -135,6 +136,12 @@ const routes = [
     component: JudgeLiveView,
     meta: { requiresAuth: true }
   },
+  {
+    path: '/admin/live-controls',
+    name: 'LiveControls',
+    component: LiveControlsView,
+    meta: { requiresAuth: true }
+  },  
   {
     // Catch-all route to redirect invalid URLs back to login
     path: '/:pathMatch(.*)*',
