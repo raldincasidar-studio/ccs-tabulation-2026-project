@@ -1,36 +1,80 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
-import { ChevronRight } from "lucide-vue-next";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import Sidebar from "@/components/Sidebar.vue";
 import starImage from "@/assets/img/star.png";
-import queenPhoto from "@/assets/img/queen.png";
 import cameraPlusImage from "@/assets/img/camm.svg";
+import contestantService from "@/services/contestantService";
 
 const router = useRouter();
-const categories = ["Mrs. Category", "Mr. Category"];
-const category = ref(categories[0]);
+const route = useRoute();
 const isMobile = ref(false);
 const isSidebarCollapsed = ref(false);
 const isMobileSidebarOpen = ref(false);
 const isMenuHidden = ref(false);
 const fileInput = ref(null);
+const groups = ref([]);
+const isLoading = ref(true);
+const isSaving = ref(false);
 const saveMessage = ref("");
+const saveError = ref(false);
 const contestant = ref({
-	number: 1,
-	name: "Japhet Bastillada",
-	label: "Panthers",
-	group: "Pageant Male",
+	name: "",
+	label: "",
+	group: "",
 	isActive: true,
-	photo: queenPhoto,
+	photo: "",
 });
+const isEditing = computed(() => Boolean(route.params.id));
 
 const hasValidContestant = computed(() =>
-	Number(contestant.value.number) > 0 &&
 	contestant.value.name.trim() &&
 	contestant.value.label.trim() &&
-	contestant.value.group.trim(),
+	contestant.value.group,
 );
+
+function unwrapList(result) {
+	const data = result?.data !== undefined ? result.data : result;
+	return Array.isArray(data) ? data : [];
+}
+
+async function loadContestant() {
+	isLoading.value = true;
+	saveMessage.value = "";
+	contestant.value = {
+		name: "",
+		label: "",
+		group: "",
+		isActive: true,
+		photo: "",
+	};
+	try {
+		const [contestantsResult, groupsResult] = await Promise.all([
+			contestantService.getContestants(),
+			contestantService.getContestantGroups(),
+		]);
+		groups.value = unwrapList(groupsResult);
+
+		if (isEditing.value) {
+			const current = unwrapList(contestantsResult).find(
+				(item) => item._id === route.params.id,
+			);
+			if (!current) throw new Error("Contestant not found.");
+			contestant.value = {
+				name: current.name || "",
+				label: current.label || "",
+				group: typeof current.group === "object" ? current.group?._id : current.group || "",
+				isActive: current.isActive !== false,
+				photo: current.image || "",
+			};
+		}
+	} catch (error) {
+		saveError.value = true;
+		saveMessage.value = error.message || "Unable to load contestant data.";
+	} finally {
+		isLoading.value = false;
+	}
+}
 
 function updateViewportState() {
 	isMobile.value = window.innerWidth < 768;
@@ -60,20 +104,57 @@ function openFilePicker() {
 function handlePhotoChange(event) {
 	const file = event.target.files?.[0];
 	if (!file) return;
-	if (contestant.value.photo.startsWith("blob:")) {
-		URL.revokeObjectURL(contestant.value.photo);
-	}
-	contestant.value.photo = URL.createObjectURL(file);
-	saveMessage.value = "";
-}
-
-function saveContestant() {
-	if (!hasValidContestant.value) {
-		saveMessage.value = "Complete all fields and enter a valid number.";
+	if (!file.type.startsWith("image/")) {
+		saveError.value = true;
+		saveMessage.value = "Choose a valid image file.";
+		event.target.value = "";
 		return;
 	}
-	contestant.value.number = Number(contestant.value.number);
-	saveMessage.value = "Contestant updated successfully!";
+
+	const reader = new FileReader();
+	reader.onload = () => {
+		contestant.value.photo = reader.result;
+		saveError.value = false;
+		saveMessage.value = "";
+	};
+	reader.onerror = () => {
+		saveError.value = true;
+		saveMessage.value = "Unable to read the selected image.";
+	};
+	reader.readAsDataURL(file);
+}
+
+async function saveContestant() {
+	if (!hasValidContestant.value) {
+		saveError.value = true;
+		saveMessage.value = "Complete all required fields.";
+		return;
+	}
+
+	isSaving.value = true;
+	saveMessage.value = "";
+	const payload = {
+		name: contestant.value.name.trim(),
+		label: contestant.value.label.trim(),
+		image: contestant.value.photo,
+		group: contestant.value.group,
+		isActive: contestant.value.isActive,
+	};
+	try {
+		if (isEditing.value) {
+			await contestantService.updateContestant(route.params.id, payload);
+			saveMessage.value = "Contestant updated successfully.";
+		} else {
+			await contestantService.createContestant(payload);
+			saveMessage.value = "Contestant created successfully.";
+		}
+		saveError.value = false;
+	} catch (error) {
+		saveError.value = true;
+		saveMessage.value = error.message || "Unable to save contestant.";
+	} finally {
+		isSaving.value = false;
+	}
 }
 
 function handleLogout() {
@@ -89,12 +170,11 @@ onMounted(() => {
 	window.addEventListener("scroll", handleScrollState, { passive: true });
 });
 
+watch(() => route.params.id, loadContestant, { immediate: true });
+
 onBeforeUnmount(() => {
 	window.removeEventListener("resize", updateViewportState);
 	window.removeEventListener("scroll", handleScrollState);
-	if (contestant.value.photo.startsWith("blob:")) {
-		URL.revokeObjectURL(contestant.value.photo);
-	}
 });
 </script>
 
@@ -135,18 +215,8 @@ onBeforeUnmount(() => {
 			<main class="main-content">
 				<div class="page-content">
 					<header class="management-banner">
-						<h1>CONTESTANT MANAGEMENT</h1>
+						<h1>{{ isEditing ? "EDIT CONTESTANT" : "CONTESTANT MANAGEMENT" }}</h1>
 					</header>
-
-					<div class="category-control">
-						<label for="category">Select Category</label>
-						<div class="category-select-wrap">
-							<select id="category" v-model="category" aria-label="Select category">
-								<option v-for="item in categories" :key="item" :value="item">{{ item }}</option>
-							</select>
-							<ChevronRight :size="14" aria-hidden="true" />
-						</div>
-					</div>
 
 					<form class="contestant-editor" @submit.prevent="saveContestant">
 						<section class="photo-column" aria-label="Contestant photo">
@@ -172,15 +242,6 @@ onBeforeUnmount(() => {
 						</section>
 
 						<section class="contestant-fields" aria-label="Contestant information">
-							<div class="number-field field">
-								<label for="contestant-number">NUMBER</label>
-								<input
-									id="contestant-number"
-									v-model="contestant.number"
-									type="number"
-									min="1"
-								/>
-							</div>
 							<div class="paired-fields">
 								<div class="field">
 									<label for="contestant-name">NAME</label>
@@ -193,7 +254,12 @@ onBeforeUnmount(() => {
 							</div>
 							<div class="group-field field">
 								<label for="contestant-group">GROUP</label>
-								<input id="contestant-group" v-model="contestant.group" type="text" />
+								<select id="contestant-group" v-model="contestant.group" required>
+									<option disabled value="">Select a group</option>
+									<option v-for="group in groups" :key="group._id" :value="group._id">
+										{{ group.name }}
+									</option>
+								</select>
 							</div>
 							<div class="form-actions">
 								<div class="active-control">
@@ -208,14 +274,14 @@ onBeforeUnmount(() => {
 										@click="contestant.isActive = !contestant.isActive"
 									><i></i></button>
 								</div>
-								<button class="save-button" type="submit">
-									SAVE
+								<button class="save-button" type="submit" :disabled="isSaving || isLoading || !hasValidContestant">
+									{{ isSaving ? "SAVING..." : "SAVE" }}
 								</button>
 							</div>
 						</section>
 					</form>
 					<Teleport to="body">
-						<p v-if="saveMessage" class="save-message" :class="{ error: !hasValidContestant }" role="status">
+						<p v-if="saveMessage" class="save-message" :class="{ error: saveError }" role="status">
 							{{ saveMessage }}
 						</p>
 					</Teleport>
@@ -294,26 +360,9 @@ onBeforeUnmount(() => {
 	text-shadow: 0 0 5px rgb(200 203 255 / 35%);
 }
 
-.category-control {
-	margin-top: 27px;
-	margin-left: 7px;
-}
-
-.category-control > label,
 .field > label {
 	display: block;
 	color: #2119ae;
-	font-family: "Croparo", sans-serif;
-	font-size: 11px;
-	font-weight: 400;
-	line-height: 1.2;
-}
-
-.category-control > label {
-	font-family: "Poppins", sans-serif;
-}
-
-.field > label {
 	font-family: "Croparo", sans-serif;
 	font-size: clamp(0.8rem, 0.8vw + 0.45rem, 1rem);
 	font-weight: 500;
@@ -321,42 +370,12 @@ onBeforeUnmount(() => {
 	letter-spacing: 0;
 }
 
-.category-select-wrap {
-	position: relative;
-	width: min(100%, 153px);
-	height: 24px;
-	margin-top: 1px;
-}
-
-.category-select-wrap select {
-	width: 100%;
-	height: 100%;
-	appearance: none;
-	padding: 0 27px 0 12px;
-	border: 0;
-	border-radius: 4px;
-	outline-color: #aaa8ff;
-	background: #3327a6;
-	box-shadow: 0 2px 5px rgb(10 10 64 / 24%);
-	color: #fff;
-	font-family: "Poppins", sans-serif;
-	font-size: 12px;
-}
-
-.category-select-wrap svg {
-	position: absolute;
-	top: 5px;
-	right: 12px;
-	color: #fff;
-	pointer-events: none;
-}
-
 .contestant-editor {
 	display: grid;
 	grid-template-columns: minmax(220px, 250px) minmax(0, 1fr);
 	align-items: start;
 	column-gap: clamp(18px, 2.8vw, 39px);
-	margin-top: 58px;
+	margin-top: 78px;
 	padding-left: 6px;
 	width: min(100%, 920px);
 }
@@ -428,12 +447,8 @@ onBeforeUnmount(() => {
 	margin-top: 6px;
 }
 
-.number-field {
-	width: 70px;
-	margin-left: 4px;
-}
-
-.field input {
+.field input,
+.field select {
 	display: block;
 	width: 100%;
 	height: clamp(38px, 2.5vw, 42px);
@@ -451,14 +466,14 @@ onBeforeUnmount(() => {
 	box-sizing: border-box;
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
 	outline-color: #7770ed;
 }
 
-.number-field input {
-	padding: 0 8px;
-	font-weight: 700;
-	text-align: center;
+.field select {
+	appearance: none;
+	cursor: pointer;
 }
 
 .paired-fields {
@@ -606,13 +621,6 @@ onBeforeUnmount(() => {
 		line-height: 1.05;
 		letter-spacing: 0.04em;
 	}
-	.category-control {
-		margin-top: 20px;
-		margin-left: 0;
-	}
-	.category-select-wrap {
-		width: min(100%, 220px);
-	}
 	.contestant-editor {
 		width: 100%;
 		max-width: 100%;
@@ -635,11 +643,6 @@ onBeforeUnmount(() => {
 	.contestant-fields {
 		row-gap: 0;
 		padding-top: 0;
-	}
-	.number-field {
-		width: 100%;
-		max-width: 120px;
-		margin-left: 0;
 	}
 	.paired-fields {
 		grid-template-columns: 1fr;
@@ -694,10 +697,6 @@ onBeforeUnmount(() => {
 	.main-content { padding-right: 12px; padding-left: 12px; }
 	.management-banner { min-height: 105px; padding: 18px 16px; }
 	.management-banner h1 { font-size: clamp(1.55rem, 8.2vw, 2.5rem); }
-	.category-select-wrap {
-		width: 100%;
-		max-width: 100%;
-	}
 	.photo-frame {
 		width: 100%;
 		height: 250px;
