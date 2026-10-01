@@ -28,6 +28,29 @@ const loading = ref(true);
 const saving = ref(false);
 const message = ref(null);
 
+async function loadContestantsForCategory(categoryId) {
+  const linkedGroups = groups.value.filter(group =>
+    Array.isArray(group.categoriesIncluded) && group.categoriesIncluded.some(category => {
+      const includedCategoryId = typeof category === 'object' && category !== null
+        ? category._id || category.id
+        : category;
+      return String(includedCategoryId) === String(categoryId);
+    })
+  );
+
+  const contestantsById = new Map();
+  const groupContestants = await Promise.all(
+    linkedGroups.map(group => judgeService.getContestants({ groupId: group._id }))
+  );
+
+  groupContestants.flat().forEach(contestant => {
+    const contestantId = contestant?._id || contestant?.id;
+    if (contestantId) contestantsById.set(String(contestantId), contestant);
+  });
+
+  contestants.value = Array.from(contestantsById.values());
+}
+
 onMounted(async () => {
   checkMobile();
   window.addEventListener('resize', checkMobile);
@@ -51,15 +74,10 @@ onMounted(async () => {
     if (liveStatus?.categoryActive?._id) {
       selectedCategory.value = liveStatus.categoryActive._id;
       
-      // Pre-fetch contestants for the initially selected category
-      const linkedGroup = groups.value.find(g => g.categoriesIncluded?.includes(selectedCategory.value));
-      if (linkedGroup) {
-        const contData = await judgeService.getContestants({ groupId: linkedGroup._id });
-        contestants.value = contData || [];
-        
-        if (liveStatus?.contestantActive?._id) {
-          selectedContestant.value = liveStatus.contestantActive._id;
-        }
+      await loadContestantsForCategory(selectedCategory.value);
+
+      if (liveStatus?.contestantActive?._id) {
+        selectedContestant.value = liveStatus.contestantActive._id;
       }
     }
   } catch (error) {
@@ -81,15 +99,10 @@ const handleCategoryChange = async () => {
 
   if (!selectedCategory.value) return;
 
-  const linkedGroup = groups.value.find(g => g.categoriesIncluded?.includes(selectedCategory.value));
-  
-  if (linkedGroup) {
-    try {
-      const contData = await judgeService.getContestants({ groupId: linkedGroup._id });
-      contestants.value = contData || [];
-    } catch (error) {
-      console.error("Failed to fetch contestants for group:", error);
-    }
+  try {
+    await loadContestantsForCategory(selectedCategory.value);
+  } catch (error) {
+    console.error("Failed to fetch contestants for category:", error);
   }
 };
 
