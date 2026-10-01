@@ -1,17 +1,24 @@
 <script setup>
+import { markRaw } from "vue";
 import { useRouter } from "vue-router";
-import dashboardImage from "@/assets/logo/dashboard.png";
+import dashboardImage from "@/assets/img/logo.png.png";
 import oneStarImage from "@/assets/img/one star.png";
+import { logout } from "@/services/authService";
 import {
   BarChart3,
   BriefcaseBusiness,
   LayoutGrid,
   LogOut,
+  Radio,
   Settings2,
   Users,
 } from "lucide-vue-next";
 
 const props = defineProps({
+  activeItem: {
+    type: String,
+    default: "DASHBOARD",
+  },
   isMobile: {
     type: Boolean,
     default: false,
@@ -35,17 +42,31 @@ const emit = defineEmits([
 
 const router = useRouter();
 
+// markRaw prevents Vue's reactivity system from wrapping component VNodes
 const navigation = [
-  { label: "DASHBOARD", icon: LayoutGrid },
-  { label: "CONFIGURATIONS", icon: Settings2 },
-  { label: "MANAGEMENT", icon: BriefcaseBusiness },
-  { label: "CONTESTANTS", icon: Users },
-  { label: "REPORTS", icon: BarChart3 },
+  { label: "DASHBOARD", icon: markRaw(LayoutGrid), route: "/admin" },
+  { label: "CONFIGURATIONS", icon: markRaw(Settings2), route: "/admin/configurations" },
+  { label: "LIVE CONTROLS", icon: markRaw(Radio), route: "/admin/live-controls" },
+  { label: "JUDGES", icon: markRaw(BriefcaseBusiness), route: "/admin/judges" },
+  { label: "CONTESTANTS", icon: markRaw(Users), route: "/admin/contestants" },
+  { label: "REPORTS", icon: markRaw(BarChart3), route: "/reports" },
 ];
 
-function handleLogout() {
-  emit("logout");
-  router.push("/login");
+function handleNavigation(item) {
+  emit("close-mobile-sidebar");
+  if (item.route) {
+    router.push(item.route);
+  }
+}
+
+async function handleLogout() {
+  try {
+    await logout();
+  } finally {
+    emit("close-mobile-sidebar");
+    emit("logout");
+    router.push("/login");
+  }
 }
 </script>
 
@@ -90,20 +111,21 @@ function handleLogout() {
     </div>
 
     <nav class="sidebar-navigation" aria-label="Main navigation">
-      <a
-        v-for="(item, index) in navigation"
+      <button
+        v-for="item in navigation"
         :key="item.label"
-        :class="['sidebar-link', { active: index === 0 }]"
-        href="#dashboard"
-        :aria-current="index === 0 ? 'page' : undefined"
-        @click="emit('close-mobile-sidebar')"
+        type="button"
+        class="sidebar-link"
+        :class="{ active: item.label === props.activeItem }"
+        :aria-current="item.label === props.activeItem ? 'page' : undefined"
+        @click="handleNavigation(item)"
       >
         <component :is="item.icon" class="sidebar-icon" :size="18" />
         <span>{{ item.label }}</span>
-      </a>
+      </button>
     </nav>
 
-    <button class="sign-out" type="button" @click="handleLogout()">
+    <button class="sign-out" type="button" @click="handleLogout">
       <span>SIGN OUT</span>
       <LogOut class="sign-out-icon" :size="14" />
     </button>
@@ -202,8 +224,11 @@ function handleLogout() {
 }
 
 .sidebar.collapsed .sidebar-brand img {
-  width: 76px;
-  max-width: 76px;
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 56px;
+  max-width: 56px;
   max-height: 90px;
   height: auto;
   object-fit: contain;
@@ -254,7 +279,7 @@ function handleLogout() {
   position: relative;
   display: flex;
   height: 115px;
-  flex: 0 0 115px;
+  flex: 0 0 130px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -282,13 +307,15 @@ function handleLogout() {
 }
 
 .sidebar-brand img {
-  position: relative;
+  position: absolute;
+  top: 11px;
+  left: 44px;
   z-index: 2;
   display: block;
-  width: 320px;
+  width: 174px;
   max-width: none;
-  height: 160px;
-  max-height: 160px;
+  height: 143px;
+  max-height: 143px;
   object-fit: contain;
 }
 
@@ -298,7 +325,7 @@ function handleLogout() {
   display: flex;
   flex-direction: column;
   gap: 0;
-  padding-top: 0;
+  padding-top: 78px;
   border-top: 1px solid rgb(255 255 255 / 15%);
 }
 
@@ -307,7 +334,7 @@ function handleLogout() {
 .sign-out {
   display: flex;
   width: 100%;
-  min-height: 42px;
+  min-height: 50px;
   align-items: center;
   gap: 6px;
   padding: 0 8px 0 12px;
@@ -344,7 +371,7 @@ function handleLogout() {
 }
 
 .sidebar-link.active {
-  min-height: 35px;
+  min-height: 50px;
   color: #f5f6ff;
   background: #11156d;
 }
@@ -541,7 +568,7 @@ function handleLogout() {
   .sidebar-brand img {
     position: relative;
     top: auto;
-    left: auto;
+    left: 35px;
     width: 250px;
     max-width: none;
     height: 120px;

@@ -3,13 +3,54 @@ import { isAuthenticated, getCurrentUser } from '@/services/authService';
 
 import LoginView from '@/views/LoginView.vue';
 import JudgeDashboardView from '@/views/JudgeDashboardView.vue';
+import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';
 import AdminView from '@/views/AdminView.vue';
-import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';  
+import JudgeLiveView from '@/views/JudgeLiveView.vue';
+import ContestantManagementView from '@/views/ContestantManagementView.vue';
+import AddContestantManagement from '@/views/AddContestantManagement.vue';
+import ConfigurationView from '@/views/ConfigurationView.vue';
+import AddContestantGroupView from '@/views/AddContestantGroupView.vue';
+import AddCategoriesView from '@/views/AddCategoriesView.vue';
+import ReportView from '@/views/ReportView.vue';
+import LiveControlsView from '@/views/LiveControlsView.vue';
 
 const routes = [
   {
     path: '/',
-    redirect: '/login',
+    redirect: '/reports',
+  },
+  {
+    path: '/reports',
+    name: 'reports',
+    component: ReportView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/reports',
+    name: 'admin-reports',
+    redirect: { name: 'reports' },
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/configurations',
+    name: 'configurations',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/management',
+    name: 'management',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/contestants',
+    name: 'contestants',
+    redirect: '/dashboard',
   },
   {
     path: '/login',
@@ -20,7 +61,61 @@ const routes = [
   {
     path: '/admin',
     name: 'admin',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/admin/judges',
+    name: 'admin-judges',
     component: AdminView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/contestants',
+    name: 'admin-contestants',
+    component: ContestantManagementView,
+    alias: '/admin/management',
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/add-contestant',
+    name: 'AddContestantManagement',
+    component: AddContestantManagement,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/add-contestant/edit/:id',
+    name: 'EditContestantManagement',
+    component: AddContestantManagement,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/configurations',
+    name: 'Configuration',
+    component: ConfigurationView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+  path: '/admin/contestant-groups/add',
+  name: 'AddContestantGroup',
+  component: AddContestantGroupView,
+  meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/contestant-groups/edit/:id',
+    name: 'EditContestantGroup',
+    component: AddContestantGroupView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/categories/add',
+    name: 'AddCategories',
+    component: AddCategoriesView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/admin/categories/edit/:id',
+    name: 'EditCategories',
+    component: AddCategoriesView,
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
@@ -33,8 +128,20 @@ const routes = [
     path: '/judge/category/:categoryId',
     name: 'JudgeCategoryVote',
     component: JudgeCategoryVoteView,
+    meta: { requiresAuth: true, role: 'Judge' },
+  },
+   {
+    path: '/judge/live',
+    name: 'JudgeLive',
+    component: JudgeLiveView,
     meta: { requiresAuth: true }
   },
+  {
+    path: '/admin/live-controls',
+    name: 'LiveControls',
+    component: LiveControlsView,
+    meta: { requiresAuth: true }
+  },  
   {
     // Catch-all route to redirect invalid URLs back to login
     path: '/:pathMatch(.*)*',
