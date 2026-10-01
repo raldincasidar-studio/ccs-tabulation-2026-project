@@ -4,7 +4,7 @@ export const connectDB = async () => {
   const mongoUri = process.env.MONGODB_URI;
 
   if (!mongoUri) {
-    console.warn('MONGODB_URI is not set. Starting in mock mode without MongoDB.');
+    console.error('MONGODB_URI is not set in environment variables.');
     return false;
   }
 
@@ -15,7 +15,7 @@ export const connectDB = async () => {
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     return true;
   } catch (error) {
-    console.warn(`Database Connection Warning: ${error.message}. Continuing in mock mode.`);
+    console.error(`Database Connection Error: ${error.message}`);
     return false;
   }
 };

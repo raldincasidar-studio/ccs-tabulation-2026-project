@@ -1,5 +1,5 @@
 {
-  "name": "package.json",
+  "name": "ccs-tabulation-frontend",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,9 @@
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "axios": "^1.20.0",
-    "vue": "^3.5.42"
+    "lucide-vue-next": "^1.0.0",
+    "vue": "^3.5.42",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",

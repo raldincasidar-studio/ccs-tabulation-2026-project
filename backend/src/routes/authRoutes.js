@@ -1,129 +1,130 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { User } from '../models/User.js';
+import { LoginSession } from '../models/LoginSession.js';
 import { sendError, sendSuccess } from '../utils/response.js';
 
 const router = express.Router();
 
-const mockUsers = [
-  {
-    _id: '64f8a123b0a9c12345678901',
-    username: 'admin',
-    password: 'adminpassword123',
-    userType: 'Admin',
-    firstName: 'Admin',
-    lastName: 'System'
-  },
-  {
-    _id: '64f8a123b0a9c12345678902',
-    username: 'judge_donde',
-    password: 'password123',
-    userType: 'Judge',
-    firstName: 'Nay',
-    lastName: 'Donde'
-  },
-  {
-    _id: '64f8a123b0a9c12345678903',
-    username: 'judge_lester',
-    password: 'password123',
-    userType: 'Judge',
-    firstName: 'Sir',
-    lastName: 'Lester'
-  },
-  {
-    _id: '64f8a123b0a9c12345678904',
-    username: 'judge_daynver',
-    password: 'password123',
-    userType: 'Judge',
-    firstName: 'Sir',
-    lastName: 'Daynver'
-  },
-  {
-    _id: '64f8a123b0a9c12345678905',
-    username: 'judge_jhunie',
-    password: 'password123',
-    userType: 'Judge',
-    firstName: 'Sir Jhunie',
-    lastName: 'Jumawan'
-  },
-  {
-    _id: '64f8a123b0a9c12345678906',
-    username: 'judge_noreen',
-    password: 'password123',
-    userType: 'Judge',
-    firstName: 'Ma\'am Noreen',
-    lastName: 'Lagahit'
-  }
-];
-
-const mockUserMap = new Map(mockUsers.map((user) => [user.username, user]));
-const JWT_SECRET = process.env.JWT_SECRET || 'GW4P0_S1_JULY4N';
+const JWT_SECRET = process.env.JWT_SECRET || 'PW3D3_N4NG_M4NG4W4T';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
 
-const signToken = (user) => jwt.sign(
-  {
-    sub: user._id,
-    username: user.username,
-    userType: user.userType
-  },
-  JWT_SECRET,
-  { expiresIn: JWT_EXPIRES_IN }
-);
+// Parse JWT_EXPIRES_IN (e.g. '8h') into milliseconds for session expiresAt
+const parseExpiry = (str) => {
+  const match = String(str).match(/^(\d+)([smhd])$/);
+  if (!match) return 8 * 60 * 60 * 1000;
+  const [, val, unit] = match;
+  const units = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+  return Number(val) * (units[unit] || 3600000);
+};
 
-export const authenticateToken = (req, res, next) => {
+const signToken = (user) =>
+  jwt.sign(
+    {
+      sub: user._id,
+      username: user.username,
+      userType: user.userType,
+    },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN },
+  );
+
+/**
+ * Middleware: Validate JWT and attach req.user from DB.
+ * Exported so other route files can protect their endpoints.
+ */
+export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers.authorization || '';
 
   if (!authHeader.startsWith('Bearer ')) {
-    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid');
+    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid', []);
   }
 
   const token = authHeader.replace('Bearer ', '').trim();
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = mockUserMap.get(decoded.username) || mockUsers.find((item) => item._id === decoded.sub);
 
-    if (!user) {
-      return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid');
+    // Check if session is still active in DB
+    const session = await LoginSession.findOne({ token, isActive: true });
+    if (!session || session.expiresAt < new Date()) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid', []);
+    }
+
+    const user = await User.findById(decoded.sub);
+    if (!user || !user.isActive) {
+      return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid', []);
     }
 
     req.user = user;
     return next();
   } catch (error) {
-    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid');
+    return sendError(res, 401, 'UNAUTHORIZED', 'Authentication token missing or invalid', []);
   }
 };
 
-router.post('/auth/login', (req, res) => {
-  const { username, password } = req.body || {};
+// ─── 1.1 POST /auth/login ───
+router.post('/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body || {};
 
-  if (!username || !password) {
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Username and password are required');
+    if (!username || !password) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Username and password are required', []);
+    }
+
+    const user = await User.findOne({ username });
+
+    const passwordMatch = user ? await bcrypt.compare(password, user.password) : false;
+    if (!user || !passwordMatch) {
+      return sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid username or password', []);
+    }
+
+    if (!user.isActive) {
+      return sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid username or password', []);
+    }
+
+    const token = signToken(user);
+    const expiresAt = new Date(Date.now() + parseExpiry(JWT_EXPIRES_IN));
+
+    // Persist session in DB
+    await LoginSession.create({
+      userId: user._id,
+      token,
+      expiresAt,
+      isActive: true,
+    });
+
+    return sendSuccess(
+      res,
+      {
+        token,
+        user: {
+          _id: user._id,
+          username: user.username,
+          userType: user.userType,
+          firstName: user.firstName,
+          lastName: user.lastName,
+        },
+        expiresAt: expiresAt.toISOString(),
+      },
+      'Login successful',
+      200,
+    );
+  } catch (error) {
+    return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Login failed', []);
   }
-
-  const user = mockUserMap.get(username);
-
-  if (!user || user.password !== password) {
-    return sendError(res, 401, 'INVALID_CREDENTIALS', 'Invalid username or password');
-  }
-
-  const token = signToken(user);
-  const expiresAt = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString();
-
-  return sendSuccess(res, {
-    token,
-    user: {
-      _id: user._id,
-      username: user.username,
-      userType: user.userType,
-      firstName: user.firstName,
-      lastName: user.lastName
-    },
-    expiresAt
-  }, 'Login successful', 200);
 });
 
-router.post('/auth/logout', authenticateToken, (req, res) => {
-  return sendSuccess(res, null, 'Logged out successfully', 200);
+// ─── 1.2 POST /auth/logout ───
+router.post('/auth/logout', authenticateToken, async (req, res) => {
+  try {
+    const token = req.headers.authorization.replace('Bearer ', '').trim();
+    await LoginSession.findOneAndUpdate({ token }, { isActive: false });
+    return sendSuccess(res, null, 'Logged out successfully', 200);
+  } catch (error) {
+    return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Logout failed', []);
+  }
 });
 
 export default router;

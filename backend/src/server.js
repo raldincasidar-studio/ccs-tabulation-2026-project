@@ -21,13 +21,15 @@ const PORT = process.env.PORT || 5000;
 const app = express();
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 app.use(cors());
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
-// Route Modules
+// Route Modules — both /api/v1 and /api/v1-mock point to the same
+// database-backed handlers. The mock prefix is kept for frontend
+// compatibility during transition.
 app.use('/api/v1', authRouter);
 app.use('/api/v1-mock', authRouter);
 app.use('/api/v1', configurationRouter);
@@ -56,6 +58,7 @@ app.use((req, res) => {
   return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Route not found', []);
 });
 
+// Global Error Handler
 app.use((err, req, res, next) => {
   if (err?.name === 'ValidationError') {
     return sendError(res, 400, 'VALIDATION_ERROR', err.message, []);
@@ -74,7 +77,12 @@ app.use((err, req, res, next) => {
 });
 
 const startServer = async () => {
-  await connectDB();
+  const dbConnected = await connectDB();
+  if (!dbConnected) {
+    console.error('ERROR: MongoDB connection is required. Set MONGODB_URI in .env and ensure the database is reachable.');
+    process.exit(1);
+  }
+
   app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
