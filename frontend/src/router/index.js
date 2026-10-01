@@ -2,8 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { isAuthenticated, getCurrentUser } from '@/services/authService';
 
 import LoginView from '@/views/LoginView.vue';
-import JudgeView from '@/views/JudgeView.vue';
+import JudgeDashboardView from '@/views/JudgeDashboardView.vue';
 import AdminView from '@/views/AdminView.vue';
+import JudgeCategoryVoteView from '@/views/JudgeCategoryVoteView.vue';  
 
 const routes = [
   {
@@ -25,8 +26,14 @@ const routes = [
   {
     path: '/judge',
     name: 'judge',
-    component: JudgeView,
+    component: JudgeDashboardView,
     meta: { requiresAuth: true, role: 'Judge' },
+  },
+  {
+    path: '/judge/category/:categoryId',
+    name: 'JudgeCategoryVote',
+    component: JudgeCategoryVoteView,
+    meta: { requiresAuth: true }
   },
   {
     // Catch-all route to redirect invalid URLs back to login
