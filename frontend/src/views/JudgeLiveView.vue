@@ -376,15 +376,15 @@ onUnmounted(() => {
           <div 
             v-if="activeContestant"
             :key="activeContestant._id"
-            class="relative z-20 flex flex-col items-center justify-end mb-[-40px] sm:mb-[-58px] md:mb-[-82px]"
+            class="relative z-20 flex flex-col items-center justify-end mb-[-12px] sm:mb-[-20px] md:mb-[-28px]"
           >
             <!-- Responsive heights and widths for candidate -->
-            <div class="relative max-w-[220px] sm:max-w-[360px] md:max-w-[420px] h-[320px] sm:h-[470px] md:h-[520px] flex items-end justify-center drop-shadow-[0_20px_35px_rgba(0,0,0,0.92)]">
+            <div class="relative max-w-[180px] sm:max-w-[290px] md:max-w-[340px] h-[240px] sm:h-[360px] md:h-[420px] flex items-end justify-center drop-shadow-[0_20px_35px_rgba(0,0,0,0.92)]">
               <img 
                 :src="activeContestant.image" 
                 :alt="activeContestant.name" 
                 @error="(e) => handleImageError(e, 0)"
-                class="w-full h-full object-contain object-bottom pointer-events-auto"
+                class="w-auto h-full max-w-full object-contain object-bottom pointer-events-auto mb-4"
               />
             </div>
             <!-- Shadow Grounding -->
@@ -405,10 +405,10 @@ onUnmounted(() => {
             <div 
               v-if="activeContestant"
               :key="activeContestant._id"
-              class="absolute inset-x-0 bottom-1.5 sm:bottom-3 md:bottom-4 z-30 flex flex-col items-center text-center px-2 sm:px-4 pointer-events-auto"
+              class="absolute inset-x-0 bottom-6 sm:bottom-8 md:bottom-10 z-30 flex flex-col items-center text-center px-2 sm:px-4 pointer-events-auto"
             >
               <h2 
-                class="font-croparo text-lg sm:text-3xl md:text-[42px] font-black uppercase text-white tracking-widest leading-tight drop-shadow-[0_3px_10px_rgba(0,0,0,0.9)] mb-0.5 sm:mb-1"
+                class="font-croparo text-[18px] sm:text-[28px] md:text-[34px] font-black uppercase text-white tracking-widest leading-tight drop-shadow-[0_3px_10px_rgba(0,0,0,0.9)] mb-0.5 sm:mb-1"
                 style="text-shadow: 0 0 18px rgba(0, 255, 251, 0.75), 0 2px 8px rgba(0, 0, 0, 0.95);"
               >
                 {{ activeContestant.name }}
