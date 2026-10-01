@@ -39,6 +39,11 @@ const categorySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    // null = all active judges (legacy behavior); [] = no assigned judges.
+    assignedJudges: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      default: null,
+    },
     rubrics: [rubricSchema],
   },
   { timestamps: true },
