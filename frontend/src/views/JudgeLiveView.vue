@@ -244,7 +244,7 @@ onUnmounted(() => {
       </router-link>
 
       <!-- Center: Now Showing Header (Absolute Center on Desktop, Normal flow on mobile) -->
-      <div class="absolute left-1/2 -translate-x-1/2 top-4 sm:top-6 md:top-10 lg:top-12 flex flex-col items-center text-center w-full max-w-[200px] sm:max-w-md pointer-events-none z-0">
+      <div class="absolute left-1/2 -translate-x-1/2 top-4 sm:top-6 md:top-10 lg:top-12 flex flex-col items-center text-center w-[90vw] max-w-none pointer-events-none z-0">
         <span class="text-[10px] sm:text-xs md:text-sm text-gray-300 font-medium tracking-[0.25em] flex items-center gap-1.5 mb-1 sm:mb-1.5 mt-10 sm:mt-0">
           <span class="text-[10px] sm:text-xs">✦</span> Now Showing
         </span>
@@ -282,7 +282,7 @@ onUnmounted(() => {
     </header>
 
     <!-- ── STAGE VIEWPORT ── -->
-    <main class="relative z-10 flex-1 w-full h-full flex flex-col items-center justify-end overflow-hidden pb-4 md:pb-0">
+    <main class="relative z-10 flex-1 w-full min-h-0 flex flex-col items-center justify-end overflow-hidden pb-4 md:pb-0">
 
       <!-- ── LEFT: SCORE SHEET RUBRICS CARDS ── -->
       <div class="absolute left-0 top-[32%] sm:top-[38%] md:top-[42%] -translate-y-1/2 z-40 flex flex-col gap-1.5 sm:gap-2 md:gap-2.5 pointer-events-none">
