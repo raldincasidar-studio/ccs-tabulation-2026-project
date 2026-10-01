@@ -26,14 +26,20 @@ const photoLoading = ref(false);
 const error = ref("");
 const saveError = ref("");
 const imagePreviewFailed = ref(false);
-const contestantId = computed(() => typeof route.query.id === "string" ? route.query.id : "");
+
+// Resolves id whether it comes from route params (/contestants/:id) or query (?id=...)
+const contestantId = computed(() => {
+	const id = route.params.id || route.query.id;
+	return typeof id === "string" ? id : "";
+});
+const isEditing = computed(() => Boolean(contestantId.value));
+
 const contestant = ref({
 	name: "",
 	label: "",
 	group: "",
 	image: "",
 });
-const isEditing = computed(() => Boolean(route.params.id));
 
 const hasValidContestant = computed(() =>
 	contestant.value.name.trim() &&
@@ -111,13 +117,22 @@ async function loadContestantForm() {
 			const contestantList = Array.isArray(contestantResponse)
 				? contestantResponse
 				: contestantResponse?.data ?? [];
-			const existing = contestantList.find((item) => (item._id || item.id) === contestantId.value);
+
+			const existing = contestantList.find(
+				(item) => String(item._id || item.id) === String(contestantId.value)
+			);
 			if (!existing) throw new Error("Contestant not found.");
+
+			const groupVal = existing.group ?? existing.contestantGroup;
+			const extractedGroupId =
+				typeof groupVal === "object" && groupVal !== null
+					? groupVal._id || groupVal.id || ""
+					: groupVal || "";
 
 			contestant.value = {
 				name: existing.name || "",
 				label: existing.label || "",
-				group: typeof existing.group === "object" ? existing.group?._id || "" : existing.group || "",
+				group: extractedGroupId,
 				image: existing.image || "",
 			};
 			imagePreviewFailed.value = false;
@@ -169,6 +184,13 @@ function handleLogout() {
 	localStorage.removeItem("user");
 	router.push("/login");
 }
+
+watch(
+	() => contestantId.value,
+	() => {
+		loadContestantForm();
+	}
+);
 
 onMounted(() => {
 	updateViewportState();
@@ -368,13 +390,6 @@ onBeforeUnmount(() => {
 .field > label {
 	display: block;
 	color: #2119ae;
-	font-family: "Croparo", sans-serif;
-	font-size: 11px;
-	font-weight: 400;
-	line-height: 1.2;
-}
-
-.field > label {
 	font-family: "Croparo", sans-serif;
 	font-size: clamp(0.8rem, 0.8vw + 0.45rem, 1rem);
 	font-weight: 500;
