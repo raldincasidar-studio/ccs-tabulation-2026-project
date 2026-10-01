@@ -28,6 +28,9 @@ This document defines the REST API contract for the CCS Tabulation System. It in
 3. Add the following values to your backend `.env` file:
    - `JWT_SECRET`
    - `MONGODB_URI`
+   - `CLOUDINARY_URL`
+
+> The backend must read `CLOUDINARY_URL` from the server environment. It should never be exposed to the browser or frontend build.
 
 ### 1.2 Standard Request & Response Rules
 
