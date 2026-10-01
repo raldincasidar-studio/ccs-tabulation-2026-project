@@ -68,51 +68,51 @@ defineProps({ report: { type: Object, required: true } });
 </template>
 
 <style scoped>
-.judge-score-paper { box-sizing: border-box; width: 100%; min-width: 650px; padding: 30px 28px; border: 1px solid #1688e8; background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.4; }
+.judge-score-paper { box-sizing: border-box; width: 100%; min-width: 650px; padding: 30px 28px; border: 1px solid #1688e8; background: #fff; color: #111; font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 1.4; }
 .judge-score-paper.landscape { min-width: 930px; }
 .paper-header { display: grid; grid-template-columns: 78px minmax(0, 1fr) 78px; align-items: center; gap: 12px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid #777; text-align: center; }
 .paper-header img { display: block; width: 76px; height: 76px; object-fit: contain; }
-.paper-header-copy p { margin: 2px 0; font-size: 11px; }
+.paper-header-copy p { margin: 2px 0; font-size: 16px; }
 .paper-header-copy .institution { font-weight: 700; }
 .paper-event, .paper-title, .paper-category { margin: 5px 0; text-align: center; overflow-wrap: anywhere; }
 .paper-event { font-size: 18px; font-weight: 700; }
 .paper-title { font-size: 16px; font-weight: 700; }
-.paper-category { margin: 10px 0 17px; font-size: 15px; font-weight: 700; text-transform: uppercase; }
+.paper-category { margin: 10px 0 17px; font-size: 16px; font-weight: 700; text-transform: uppercase; }
 .paper-scope { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid #ccc; }
 .paper-scope > div { min-width: 0; }
-.paper-scope dt { font-size: 10px; }
-.paper-scope dd { margin: 2px 0 0; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
-.paper-metadata { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; margin: 9px 0; font-size: 9px; color: #444; }
-.paper-status { margin: 10px 0 13px; font-size: 10px; }
+.paper-scope dt { font-size: 16px; }
+.paper-scope dd { margin: 2px 0 0; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; }
+.paper-metadata { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 5px; margin: 9px 0; font-size: 16px; color: #444; }
+.paper-status { margin: 10px 0 13px; font-size: 16px; }
 .paper-status.incomplete { padding: 7px; border: 1px solid #a8a8a8; }
-.paper-review-note { margin: 7px 0 12px; font-size: 10px; color: #734119; }
-.paper-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+.paper-review-note { margin: 7px 0 12px; font-size: 16px; color: #734119; }
+.paper-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 16px; }
 .number-column { width: 5%; }
 .candidate-column { width: 25%; }
 .total-column { width: 11%; }
 .status-column { width: 13%; }
 .paper-table th, .paper-table td { padding: 8px 6px; border: 1px solid #222; vertical-align: middle; overflow-wrap: anywhere; }
-.paper-table thead th { background: #f5f5f5; font-size: 10px; font-weight: 700; }
-.paper-table .repeated-scope th { padding: 6px; font-size: 9px; font-weight: 400; }
-.repeated-scope small { margin-left: 8px; font-size: 8px; }
-.paper-table small { display: block; margin-top: 3px; font-size: 9px; font-weight: 400; line-height: 1.4; }
+.paper-table thead th { background: #f5f5f5; font-size: 16px; font-weight: 700; }
+.paper-table .repeated-scope th { padding: 6px; font-size: 16px; font-weight: 400; }
+.repeated-scope small { margin-left: 8px; font-size: 16px; }
+.paper-table small { display: block; margin-top: 3px; font-size: 16px; font-weight: 400; line-height: 1.4; }
 .paper-center { text-align: center; }
 .candidate-cell { text-align: left; font-weight: 400; }
 .candidate-cell > span, .candidate-cell > small { display: block; margin-top: 3px; }
-.candidate-cell > span { font-size: 10px; }
+.candidate-cell > span { font-size: 16px; }
 .missing-cell { color: #777; }
 .review-cell { background: #fff7ed; }
 .recorded-score, .total-cell { font-variant-numeric: tabular-nums; }
-.paper-notes { margin-top: 13px; font-size: 9px; color: #333; line-height: 1.6; }
+.paper-notes { margin-top: 13px; font-size: 16px; color: #333; line-height: 1.6; }
 .paper-notes p { margin: 4px 0; }
 .paper-certification { margin-top: 25px; break-inside: avoid; page-break-inside: avoid; }
-.paper-certification > p { font-size: 11px; font-style: italic; line-height: 1.6; }
+.paper-certification > p { font-size: 16px; font-style: italic; line-height: 1.6; }
 .paper-single-signature { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 235px; margin: 38px auto 0; text-align: center; }
 .signature-line { width: 100%; border-top: 1px solid #555; }
-.paper-single-signature > strong { max-width: 100%; overflow-wrap: anywhere; font-size: 12px; }
-.paper-single-signature > em { font-size: 10px; }
-.signature-date { margin-top: 9px; font-size: 10px; }
-.paper-footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 8px; color: #666; text-align: center; overflow-wrap: anywhere; }
+.paper-single-signature > strong { max-width: 100%; overflow-wrap: anywhere; font-size: 16px; }
+.paper-single-signature > em { font-size: 16px; }
+.signature-date { margin-top: 9px; font-size: 16px; }
+.paper-footer { margin-top: 18px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 16px; color: #666; text-align: center; overflow-wrap: anywhere; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 @media print {
   .judge-score-paper, .judge-score-paper.landscape { width: 100%; min-width: 0; padding: 5mm 5mm 6mm; font-size: 9pt; box-shadow: none; }
@@ -124,6 +124,10 @@ defineProps({ report: { type: Object, required: true } });
   .paper-category { font-size: 11pt; margin-bottom: 4mm; }
   .paper-scope { break-inside: avoid; padding: 2mm 3mm; }
   .paper-scope dd { font-size: 10pt; }
+  .paper-scope dt, .paper-metadata, .paper-status, .paper-review-note { font-size: 8pt; }
+  .paper-table .repeated-scope th { font-size: 7.5pt; }
+  .repeated-scope small { font-size: 7pt; }
+  .candidate-cell > span { font-size: 8pt; }
   .paper-table { font-size: 8pt; }
   .landscape .paper-table { font-size: 7.5pt; }
   .paper-table th, .paper-table td { padding: 2mm 1.4mm; }

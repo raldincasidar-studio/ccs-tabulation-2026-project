@@ -1,8 +1,9 @@
-> **Edited contract — Admin Dashboard Monitoring and Judge Category Reports (2026-10-02).**
+> **Edited contract — Admin Monitoring, Restored Reports and Individual Judge Records (2026-10-02).**
 > This is a duplicate of `API_Contract_v1_0.md`; the original is unchanged.
-> The additions and overrides in **Sections 9 and 10** document dashboard
+> The additions and overrides in **Sections 9, 10 and 11** document dashboard
 > monitoring, judge assignments, scoring validation, server readiness and
-> single-judge, single-category, single-group paper reports.
+> single-judge/category records, restored standings/summary paper reports,
+> the sample-style category results sheet and readable 16px dashboard typography.
 > These changes are implemented in `frontend/` and `backend/` only.
 > Local development uses the same-origin `/api/v1` path through Vite's proxy.
 > Both `/api/v1` and the legacy `/api/v1-mock` prefix in `backend/` use MongoDB;
@@ -2042,39 +2043,27 @@ The full `scope` and selected judge/category/group metadata are authoritative.
 
 The same rules apply to the legacy `/api/v1-mock` alias implemented in `backend/`.
 
-### 10.2 Combined paper export retired
+### 10.2 Previous reports restored alongside the individual record
 
-`GET /api/v1/reports/paper/final-ranking-sheet` now returns
-**410 Gone / `REPORT_REPLACED`** rather than an official-looking record combining
-judges and categories. Its replacement is the scoped endpoint in Section 10.1.
+The user requested that the earlier Reports functionality remain available.
+`GET /api/v1/reports/paper/final-ranking-sheet?groupId=...` is **restored** and
+no longer returns 410/`REPORT_REPLACED`. The overall standings, voting progress,
+full judge multi-category summary and judge category-total summary are available
+on `/reports`. The new strict criterion record remains a separate format on
+`/reports/judge-category`, with its original scoped API unchanged.
 
-```json
-{
-  "success": false,
-  "error": {
-    "code": "REPORT_REPLACED",
-    "message": "Combined paper reports are no longer available. Select one judge, one category and one contestant group for a judge score report",
-    "details": [
-      {
-        "replacement": "/reports/paper/judge-scoresheet/:judgeId",
-        "requiredQuery": ["categoryId", "groupId"]
-      }
-    ]
-  }
-}
-```
+See Section 11 for restored aggregate/summary contracts, the category-results
+matrix and differences between raw-sum versus average-weighted totals. Aggregate
+reports are not presented as the selected judge's individual criterion record.
 
-`GET /reports/final-rankings` and `GET /reports/voting-progress` remain analytics
-APIs for compatibility. They are no longer rendered/printed as individual judge
-score reports by the Reports page. Live standings/progress are available in the
-admin dashboard.
-
-### 10.3 Reports page and paper behavior
+### 10.3 Individual judge/category page and paper behavior
 
 - Preserve the current admin design system: navy constellation header, shared
   sidebar, Croparo headings, Poppins interface typography and existing controls.
-- Require explicit Judge, Category and Pageant/Group selections. No "All groups",
-  "All categories", all-judge or combined-category print mode exists.
+- On `/reports/judge-category`, require explicit Judge, Category and Pageant/Group
+  selections. No "All groups", "All categories", all-judge or combined-category
+  mode exists **in this individual record**. Separate restored report formats
+  coexist on `/reports`, as documented in Section 11.
 - Reuse existing paper-template styling and logos: institutional header, blue
   border, criterion/candidate table, certification paragraph and exactly one
   signature line labeled with the selected judge's name. No other judge or
@@ -2108,7 +2097,7 @@ admin dashboard.
 1. Start the backend/frontend servers and check `/api/v1/health` through the
    frontend proxy. A 503 readiness result blocks authenticated live-data
    verification; do not substitute mock scores as official records.
-2. When MongoDB is available, sign in as an Admin and open `/reports`.
+2. When MongoDB is available, sign in as an Admin and open `/reports/judge-category`.
 3. Generate Judge One / Playsuit / Pageant Male. Verify individual raw criterion
    values, exact decimals, valid zeros, missing fields and the single signature.
 4. Switch to Pageant Female, another category, then another judge. Each change
@@ -2116,10 +2105,251 @@ admin dashboard.
 5. Print/save PDF. Verify no other judge/category/group appears, the existing
    institutional paper design is retained, and multi-page rows are not clipped.
 6. Confirm omitted `categoryId`/`groupId` requests fail with 400, a Judge requesting
-   another Judge's record fails with 403, and the former combined paper export
-   returns 410. Inactive/legacy stored entries remain visible and require review
-   when appropriate.
+   another Judge's record fails with 403. Verify the restored overall paper
+   endpoint returns a group-scoped report rather than 410. Inactive/legacy stored
+   entries remain visible in individual records and require review when appropriate.
 
 **Reports update:** 2026-10-02. The original `API_Contract_v1_0.md` remains
-unchanged; all report additions and breaking print-contract changes are recorded
+unchanged; all report additions and scoped print-contract changes are recorded
 in this edited duplicate.
+
+
+---
+
+## 11. Restored Reports, Category Results Paper and Dashboard Readability
+
+**Correction date:** 2026-10-02. This section restores earlier Reports workflows
+alongside Section 10, rather than replacing either one. Code changes remain in
+`frontend/` and `backend/`; the original contract remains untouched.
+
+### 11.1 Report navigation and existing workflows
+
+- `/reports`: restored Final Rankings with group filters, overall-ranking paper,
+  Judge Voting Progress and paper, full judge multi-category raw-total summary,
+  and a per-judge category-total print picker. Original navy/gold table layouts,
+  sidebar, Croparo/Poppins branding, institutional paper header/logos and blue
+  paper border are retained.
+- `/reports/judge-category`: the detailed Section 10 report, unchanged in scope:
+  exactly one judge, one category, one group, exact recorded criterion values,
+  raw decimal-string totals, stable preview/reference and one judge signature.
+- Both pages have clearly labeled links to the other format. `/admin/reports`
+  continues to redirect to `/reports`; both pages require an Admin in the UI.
+- All-groups **screen overview** preserves each group's own rank. It never
+  re-ranks Male/Female into a combined competition. Select one group before
+  printing overall standings, category results or a judge summary. Voting
+  progress can summarize all groups because it lists judges/field completion,
+  not a mixed candidate ranking.
+- The restored full/category-total summary is deliberately labeled a summary,
+  not an individual criterion record. The old ambiguous omitted-query behavior
+  is not reintroduced on `/paper/judge-scoresheet/:judgeId`.
+
+### 11.2 Final rankings and restored overall paper API
+
+```
+GET /api/v1/reports/final-rankings?groupId=<ObjectId>
+GET /api/v1/reports/paper/final-ranking-sheet?groupId=<ObjectId>
+```
+
+One scalar 24-hex group ID is required. Missing/malformed IDs return 400;
+unknown groups return 404. The screen analytics API accepts Admin/Judge sessions;
+the paper API is Admin-only. Both are private/no-store. Both return the existing
+`eventTitle`, `group`, rankings/rows, per-category scores and
+`final_candidate_score`, with additive `header`, `scope.groupId`, `generatedAt`,
+`resultStatus`, `formula`, `categories`, `judges`, `canPrint` and row status.
+
+**Existing overall formula retained:** for each relevant category, average the
+valid current criterion totals from eligible assigned judges with at least one
+valid saved field, multiply that average by category weight / 100, then sum
+category weighted points. Existing one-decimal category/final display precision
+is retained. This is **not** the raw-sum formula used by Section 11.5's matrix.
+
+Aggregate eligibility matches live monitoring: active registered contestants in
+the requested group, linked categories and active assigned judges. Inactive or
+unassigned scores do not enter current aggregate results; their individual and
+judge-summary records remain readable. An explicit `assignedJudges: []` assigns
+no judges; null/absent means all active judges. A saved zero is a score; absent
+category scores/final totals with no valid saved fields are null, not fabricated
+zeros. A no-score group can preview but `canPrint: false`. Provisional equal
+scores share competition ranks (1, 1, 3); there is no persisted finalization lock
+or configured official tie-break. Overall points are labeled points, not a
+misleading percent when rubrics have arbitrary maxima.
+
+The restored overall paper has all relevant judge certification lines. Printing
+fetches one fresh group-scoped snapshot and freezes it for the print dialog.
+Paper content now flows across pages rather than the previous fixed-position
+page that could clip or repeat rows. Named page styles avoid conflicts with the
+separate individual record.
+
+### 11.3 Restored voting progress API and paper
+
+```
+GET /api/v1/reports/voting-progress
+GET /api/v1/reports/voting-progress?groupId=<ObjectId>
+```
+
+Admin-only, private/no-store. Optional group ID uses the same scalar validation.
+The array retains `judgeId`, `judgeName`, `progressPercentage`, with additive
+`username`, `status`, `scoredFields`, `requiredFields`, `requiredSheets`,
+`completedSheets` and `pendingEvaluations`.
+
+Progress now shares the dashboard's actual rubric/assignment/group requirements:
+valid required fields / required fields × 100, to one decimal. A partial saved
+score sheet no longer counts as a complete vote, irrelevant category/contestant
+combinations are not required, and valid zero counts. No required fields yields
+0 percent and `not_required`, not an assertion of completed scoring. The selected
+group filter scopes the progress screen; all-groups mode summarizes all required
+sheets. The print paper freezes the displayed progress and includes its scope
+and preparation time in PHT.
+
+### 11.4 Restored full/category-total judge summary API
+
+```
+GET /api/v1/reports/paper/judge-summary/:judgeId?groupId=<ObjectId>
+```
+
+This new **separate compatibility-format endpoint** powers both earlier judge
+summary printouts. It does not change Section 10's strict individual endpoint.
+One judge ID and one group ID are required (24-hex scalars); Admins may read any
+registered Judge, Judges only their own. 400 invalid scope; 403 another Judge's
+record; 404 missing Judge/group; 500 internal errors; 503 disconnected database.
+
+Response retains the earlier summary shape:
+
+- `header`: institution, college, summary title.
+- `scope`: `judgeId`, `groupId`; also `judgeId`, `judgeName`, `group`.
+- `generatedAt`, `resultStatus: "provisional"`, `canPrint`.
+- `contestants[]`: `contestantId`, `name`, `label`, `nameAndLabel`, provisional
+  `rank`, `status`, `categoryBreakdown[]` and `final_candidate_score`.
+- `categoryBreakdown[]`: `categoryId`, `categoryName` including weight label,
+  `score` (exact saved raw decimal string or null), `status`.
+- `final_candidate_score` is the sum of available category raw totals, **not** an
+  average or weighted total. The paper correctly labels it "Combined raw total"
+  rather than the earlier misleading weighted-score label. Partial/review and
+  missing categories are marked; no saved total remains null/prints `—`.
+
+Database queries AND the pure builders enforce the chosen judge and current
+registered group membership. Only that group's linked categories are summarized.
+Historical inactive registrations are retained, as in the individual record.
+Each category summary reuses the individual raw-value calculation, including
+review flags for duplicate/invalid/removed criterion records. Both restored
+judge-summary papers still include exactly the selected judge's signature.
+The detailed individual report remains available for inspecting every criterion.
+
+### 11.5 Category final-results matrix matching the supplied paper sample
+
+```
+GET /api/v1/reports/paper/category-results?categoryId=<ObjectId>&groupId=<ObjectId>
+```
+
+Admin-only, private/no-store. Exactly one category and group are required; the
+category must be linked to that group. Missing/non-scalar/malformed IDs or an
+unlinked category return 400; missing records return 404. Results are read-only.
+
+Response shape (inside the standard `data` success envelope):
+
+```json
+{
+  "header": {
+    "institution": "Jose Rizal Memorial State University",
+    "college": "College of Computing Studies",
+    "title": "Final Category Results"
+  },
+  "eventTitle": "MR. AND MS. CCS 2026",
+  "scope": { "groupId": "<group-id>", "categoryId": "<category-id>" },
+  "group": { "groupId": "<group-id>", "name": "Pageant Male" },
+  "category": { "categoryId": "<category-id>", "name": "Playsuit", "weight": 10 },
+  "generatedAt": "2026-10-02T03:00:00.000Z",
+  "resultStatus": "provisional",
+  "scoringComplete": true,
+  "canPrint": true,
+  "judges": [{ "judgeId": "<judge-id>", "judgeName": "Judge Name", "label": "Judge 1" }],
+  "formula": "Weighted total = Total raw × 10 / 100. Average raw = Total raw / judges with at least one valid saved field.",
+  "tiePolicy": "Equal weighted totals share a provisional rank. No official tie-break or finalization rule is configured.",
+  "rows": [{
+    "contestantId": "<contestant-id>", "name": "Candidate Name", "label": "4",
+    "judgeTotals": [{ "judgeId": "<judge-id>", "totalRaw": 92, "status": "complete", "scoredFields": 2, "requiredFields": 2 }],
+    "totalRaw": 92, "averageRaw": 92, "weightedTotal": 9.2,
+    "submittedJudges": 1, "status": "complete", "rank": 1
+  }]
+}
+```
+
+The example above illustrates one assigned judge only; the table dynamically
+includes all active assigned judges, not a hard-coded five. Names are listed
+with the report's numbered columns in stable registration order. Candidate
+numbers use the registered label, not a fabricated rank/registration number.
+
+**Sample-specific formulas:**
+
+- Judge total: sum of that judge's valid saved points for current category rubrics.
+- Total raw: sum of the displayed judge raw totals (exact decimal summation).
+- Average raw: total raw / judges with at least one valid saved field, matching
+  current partial-scoring semantics. Once all five judges submit complete scores,
+  this is total raw / 5 as in the sample. Missing judges are never silently zero.
+- **Weighted total = Total raw × category weight / 100.** At 10 percent, the
+  sample totals are 460 → 92.00 average → 46.00 weighted; 439 → 87.80 → 43.90;
+  430 → 86.00 → 43.00; 410 → 82.00 → 41.00. This matrix column is deliberately
+  distinct from the unchanged overall/dashboard average-weighted contribution.
+- Up to two decimals for aggregate paper display; unrounded weighted totals rank
+  candidates. Equal totals share provisional competition ranks. No proposed
+  Q&A/chairperson rule from the sample has been invented or applied.
+- Only current eligible members/assigned judges enter this aggregate sheet.
+  Invalid/duplicate rubric values are not counted as valid points; ambiguous
+  sheets, removed criteria and invalid entries are marked `needs_review`.
+  Partial totals are marked. Missing totals and ranks are null/print `—`;
+  a valid saved zero prints `0`; no valid saved totals disables printing.
+
+Paper includes the two existing institutional logos/header, event title,
+category/weight, exactly one group, named judge list, PHT preparation time,
+candidate label/name, each judge total, Total Raw, Average Raw, Weighted Total,
+Final Rank, manual signatures for every included judge, tabulator and an optional
+chairperson. Event date, venue, tabulator name and chairperson name are optional
+**print-only UI metadata**; blank entries leave writing lines. They do not modify
+Configuration, authenticate a chairperson, persist digital signatures or change
+any tie/finalization policy. A4 portrait for up to five judges, landscape above
+five; repeating scope headers, flowing tables and unsplit signature blocks where
+possible. Preview/print share the same snapshot and metadata; later edits require
+explicit regeneration. Scope changes/unmount cancel and reject stale responses.
+
+### 11.6 Dashboard/report typography and contrast
+
+Normal interface text is approximately **16px**, including monitor descriptions,
+category cards, status badges, table headers/values, judge progress, assignment
+controls, report selectors/buttons/metadata and shared sidebar links. Existing
+large Croparo titles/metrics, Poppins body font, navy constellation backgrounds,
+navy/gold tables and branded spacing remain. Muted body text uses darker readable
+colors (primarily `#4c5d7a`); navy card/sidebar labels use brighter light colors.
+Mobile layouts wrap/stack instead of shrinking text back to 9–11px. Wider scoring
+tables remain internally horizontally scrollable; panels stack earlier to allow
+larger text. On-screen paper previews also use readable 16px text; print-specific
+point sizes remain separate for A4 pagination. No unrelated dark-mode redesign.
+
+### 11.7 Verification and remaining live-data checks
+
+No frontend test framework, test dependencies or test files were added. Verify
+with the running frontend/backend servers, production build, backend syntax and
+isolated pure backend calculation checks without database writes.
+
+Manual checks after MongoDB readiness succeeds:
+
+1. Open `/reports`: confirm the earlier ranking/group filters and Voting Progress
+   are restored, with Full Summary/By Category controls and the new report links.
+2. Compare each group to live monitoring. Partial sheets remain incomplete;
+   active assignments govern aggregate eligibility; saved zero differs from blank.
+3. Print overall standings for Male, then Female; ensure they are separate and
+   paper rows flow across multiple pages. Check Voting Progress and both restored
+   judge summary formats, including exact raw totals and only that judge's signature.
+4. Generate category results for Male / Playsuit: verify named judge columns,
+   sample formulas, optional print metadata, all judge signatures plus tabulator
+   and optional chairperson; refresh only through explicit regeneration.
+5. Open `/reports/judge-category`: confirm the strict detailed record still works
+   with exact criterion values and one signature; missing scope fails, another
+   Judge cannot access the selected judge's scores.
+6. Check desktop/mobile monitoring typography at normal zoom and in low-light
+   surroundings: labels/fields around 16px, dark readable muted text, no clipped
+   cards or page-width overflow, keyboard focus and internally scrollable tables.
+
+MongoDB Atlas remains unavailable from this workspace (TLS connection resets).
+Server readiness and database-backed endpoints correctly return 503; real-data
+screens, authenticated permission outcomes and live-data PDFs cannot yet be
+verified. No synthetic fixture is served or stored as an official event record.

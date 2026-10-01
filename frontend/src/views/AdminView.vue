@@ -108,6 +108,9 @@ function handleLogout() {
   overflow: hidden;
   background: #f3f5f4;
   color: #101747;
+  font-family: 'Poppins', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
 }
 
 .main-content {
