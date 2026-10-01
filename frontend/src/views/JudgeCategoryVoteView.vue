@@ -400,93 +400,84 @@ onMounted(() => {
       </div>
 
       <div v-else>
-        <!-- ── SCORESHEET TABLE HEADER ── -->
-        <div 
-          class="w-full rounded-t-xl overflow-hidden shadow-lg grid grid-cols-12 items-center py-3.5 px-3 sm:px-6 text-[11px] sm:text-xs md:text-sm font-bold uppercase tracking-wider text-black"
-          style="background: linear-gradient(90deg, #FAD02C 0%, #D8BE36 28%, #1D4ED8 70%, #0047FF 100%);"
-        >
-          <div class="col-span-5 sm:col-span-4 pl-1 sm:pl-2 text-black font-extrabold">
-            Candidate
-          </div>
-          <div 
-            class="col-span-7 sm:col-span-8 grid text-center text-white px-1"
-            :class="criteriaList.length === 2 ? 'grid-cols-2' : 'grid-cols-3'"
-          >
-            <span 
-              v-for="criterion in criteriaList" 
-              :key="criterion.id"
-              class="px-1 leading-snug whitespace-normal"
-            >
-              {{ criterion.label }}
-            </span>
-          </div>
+        <div class="overflow-x-auto pb-2">
+          <table class="min-w-[980px] w-full table-fixed border-separate border-spacing-y-2 text-left">
+            <thead>
+              <tr class="rounded-t-xl overflow-hidden shadow-lg" style="background: linear-gradient(90deg, #FAD02C 0%, #D8BE36 28%, #1D4ED8 70%, #0047FF 100%);">
+                <th class="w-[25%] px-3 py-3.5 text-left text-[11px] sm:text-xs md:text-sm font-bold uppercase tracking-wider text-black rounded-l-xl">
+                  CANDIDATE
+                </th>
+                <th
+                  v-for="criterion in criteriaList.slice(0, 5)"
+                  :key="criterion.id"
+                  class="w-[15%] px-2 py-3.5 text-center text-[11px] sm:text-xs md:text-sm font-bold uppercase tracking-wider text-white"
+                >
+                  <span class="block leading-tight">{{ criterion.label }}</span>
+                  <span class="mt-1 block text-[10px] sm:text-[11px] font-semibold text-white/90">({{ criterion.max }})</span>
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr
+                v-for="(candidate, idx) in filteredCandidates"
+                :key="candidate.id"
+                class="border border-blue-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-transform hover:scale-[1.006]"
+                style="background: linear-gradient(90deg, #021B79 0%, #0529A8 40%, #001254 100%);"
+              >
+                <td class="w-[25%] px-3 py-3 sm:px-4 rounded-l-xl align-middle">
+                  <div class="flex items-center gap-2.5 sm:gap-4 min-w-0">
+                    <div class="relative w-11 h-13 sm:w-14 sm:h-16 shrink-0 rounded-lg overflow-hidden bg-gradient-to-b from-yellow-400 to-amber-600 p-0.5 shadow-md">
+                      <img 
+                        :src="candidate.avatar" 
+                        :alt="candidate.name" 
+                        @error="(e) => handleImageError(e, idx)"
+                        class="w-full h-full object-cover object-top rounded-md"
+                      />
+                    </div>
+
+                    <div class="flex flex-col min-w-0">
+                      <div class="flex items-center gap-1.5 text-xs text-gray-300 font-medium">
+                        <span :class="['w-2 h-2 rounded-full shrink-0', candidate.yearDotColor]"></span>
+                        <span class="truncate">{{ candidate.label }}</span>
+                      </div>
+                      <h2 class="text-sm sm:text-base font-bold text-white truncate drop-shadow">
+                        {{ candidate.name }}
+                      </h2>
+                    </div>
+                  </div>
+                </td>
+
+                <td
+                  v-for="criterion in criteriaList.slice(0, 5)"
+                  :key="criterion.id"
+                  class="w-[15%] px-2 py-3 text-center align-middle"
+                >
+                  <div class="flex items-center justify-center gap-1 sm:gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      :max="criterion.max"
+                      v-model.number="candidate.scores[criterion.id]"
+                      @input="onScoreInput(candidate, criterion.id, criterion.max)"
+                      :placeholder="formatScore(candidate.scores[criterion.id]) || '00'"
+                      class="w-11 h-9 sm:w-16 sm:h-10 text-center font-bold text-sm sm:text-lg bg-[#00144D]/80 border border-blue-400/60 rounded-md text-white placeholder-white focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span class="text-xs sm:text-sm font-semibold text-gray-200 select-none">
+                      / {{ criterion.max }}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <!-- ── ALL CANDIDATES ROWS ── -->
-        <div class="space-y-3 mt-3">
-          <div
-            v-for="(candidate, idx) in filteredCandidates"
-            :key="candidate.id"
-            class="relative w-full rounded-2xl p-3 sm:p-4 grid grid-cols-12 items-center border border-blue-500/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)] transition-transform hover:scale-[1.006]"
-            style="background: linear-gradient(90deg, #021B79 0%, #0529A8 40%, #001254 100%);"
-          >
-            <!-- Candidate Information -->
-            <div class="col-span-5 sm:col-span-4 flex items-center gap-2.5 sm:gap-4 pl-1">
-              <div class="relative w-11 h-13 sm:w-14 sm:h-16 shrink-0 rounded-lg overflow-hidden bg-gradient-to-b from-yellow-400 to-amber-600 p-0.5 shadow-md">
-                <img 
-                  :src="candidate.avatar" 
-                  :alt="candidate.name" 
-                  @error="(e) => handleImageError(e, idx)"
-                  class="w-full h-full object-cover object-top rounded-md"
-                />
-              </div>
-
-              <div class="flex flex-col min-w-0">
-                <div class="flex items-center gap-1.5 text-xs text-gray-300 font-medium">
-                  <span :class="['w-2 h-2 rounded-full shrink-0', candidate.yearDotColor]"></span>
-                  <span class="truncate">{{ candidate.label }}</span>
-                </div>
-                <h2 class="text-sm sm:text-base font-bold text-white truncate drop-shadow">
-                  {{ candidate.name }}
-                </h2>
-              </div>
-            </div>
-
-            <!-- Scoring Inputs Columns -->
-            <div 
-              class="col-span-7 sm:col-span-8 grid gap-1.5 sm:gap-4 items-center"
-              :class="criteriaList.length === 2 ? 'grid-cols-2' : 'grid-cols-3'"
-            >
-              <div 
-                v-for="criterion in criteriaList" 
-                :key="criterion.id"
-                class="flex items-center justify-center gap-1 sm:gap-2"
-              >
-                <!-- Score Input Box -->
-                <input
-                  type="number"
-                  min="0"
-                  :max="criterion.max"
-                  v-model.number="candidate.scores[criterion.id]"
-                  @input="onScoreInput(candidate, criterion.id, criterion.max)"
-                  :placeholder="formatScore(candidate.scores[criterion.id]) || '00'"
-                  class="w-11 h-9 sm:w-16 sm:h-10 text-center font-bold text-sm sm:text-lg bg-[#00144D]/80 border border-blue-400/60 rounded-md text-white placeholder-white focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-                <!-- Max Points Denominator -->
-                <span class="text-xs sm:text-sm font-semibold text-gray-200 select-none">
-                  / {{ criterion.max }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Empty state -->
-          <div 
-            v-if="filteredCandidates.length === 0" 
-            class="text-center py-12 text-gray-400 bg-blue-950/20 rounded-xl border border-blue-900/40"
-          >
-            No candidates found in this filter category.
-          </div>
+        <div 
+          v-if="filteredCandidates.length === 0" 
+          class="text-center py-12 text-gray-400 bg-blue-950/20 rounded-xl border border-blue-900/40 mt-3"
+        >
+          No candidates found in this filter category.
         </div>
       </div>
 
