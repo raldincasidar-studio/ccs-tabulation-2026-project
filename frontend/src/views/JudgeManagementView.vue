@@ -118,7 +118,7 @@ onMounted(loadJudges)
   <div class="judge-management-view">
     <p
       v-if="successMessage && viewMode === 'list'"
-      class="mx-4 mb-4 rounded-md border border-emerald-300/30 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-200 sm:mx-6 md:mx-8"
+      class="mx-4 mb-4 rounded-md border border-emerald-300/30 bg-emerald-950/50 px-4 py-3 text-base text-emerald-200 sm:mx-6 md:mx-8"
       role="status"
     >
       {{ successMessage }}

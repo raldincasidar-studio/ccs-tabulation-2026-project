@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_BASE_URL || 'https://ccs-tabulation-2026-project.vercel.app/api/v1',
+  baseURL: import.meta.env.VITE_BASE_URL || '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -20,6 +20,9 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    // Preserve cancellation so report/scope changes and navigation do not
+    // surface aborted requests as failures or enable a stale printout.
+    if (axios.isCancel(error)) return Promise.reject(error);
     const errorPayload = error.response?.data?.error;
 
     if (error.response?.status === 401) {

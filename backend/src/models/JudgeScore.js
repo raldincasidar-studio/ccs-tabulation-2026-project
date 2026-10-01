@@ -8,7 +8,7 @@ const rubricScoreSchema = new mongoose.Schema(
     },
     score: {
       type: Number,
-      default: 0,
+      required: true,
       min: 0,
     },
   },
