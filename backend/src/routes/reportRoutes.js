@@ -1,5 +1,7 @@
 import express from 'express';
 import { authenticateToken } from './authRoutes.js';
+import { requireJudgeOrAdmin } from '../middleware/auth.js';
+import { buildJudgeCategoryReport } from '../services/judgeReportService.js';
 import { Category } from '../models/Category.js';
 import { Contestant } from '../models/Contestant.js';
 import { ContestantGroup } from '../models/ContestantGroup.js';
@@ -122,150 +124,59 @@ router.get('/reports/final-rankings', authenticateToken, async (req, res) => {
   }
 });
 
-// ─── 8.3 GET /reports/paper/final-ranking-sheet ───
-router.get('/reports/paper/final-ranking-sheet', authenticateToken, async (req, res) => {
-  try {
-    const { groupId } = req.query || {};
-
-    if (!groupId || !String(groupId).trim()) {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'No scores found to calculate final ranking sheet for this group', []);
-    }
-
-    const group = await ContestantGroup.findById(groupId);
-    if (!group) {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'No scores found to calculate final ranking sheet for this group', []);
-    }
-
-    const contestants = await Contestant.find({ group: group._id });
-    const categories = await Category.find();
-
-    const contestantScores = await Promise.all(
-      contestants.map(async (contestant) => {
-        let finalScore = 0;
-
-        for (const category of categories) {
-          const judgeEntries = await JudgeScore.find({
-            categoryId: category._id,
-            contestantId: contestant._id,
-          });
-
-          if (!judgeEntries.length) continue;
-
-          const rawScore =
-            judgeEntries.reduce((sum, entry) => {
-              const rubricTotal = (entry.rubricsScore || []).reduce(
-                (total, item) => total + Number(item.score || 0),
-                0,
-              );
-              return sum + rubricTotal;
-            }, 0) / judgeEntries.length;
-
-          finalScore += (rawScore * category.weight) / 100;
-        }
-
-        return {
-          rank: 1,
-          nameAndLabel: `${contestant.label} - ${contestant.name}`,
-          group: group.name,
-          final_candidate_score: Number(finalScore.toFixed(1)),
-        };
-      }),
-    );
-
-    contestantScores.sort((a, b) => b.final_candidate_score - a.final_candidate_score);
-    const ranked = contestantScores.map((row, index) => ({ ...row, rank: index + 1 }));
-
-    if (!ranked.length) {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'No scores found to calculate final ranking sheet for this group', []);
-    }
-
-    return sendSuccess(
-      res,
-      {
-        header: {
-          institution: 'Jose Rizal Memorial State University',
-          college: 'College of Computing Studies',
-          title: 'Mr. & Ms. CCS 2026 Final Ranking',
-        },
-        group: group.name,
-        rows: ranked,
-      },
-      'Final ranking sheet prepared successfully',
-      200,
-    );
-  } catch (error) {
-    if (error.name === 'CastError') {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'No scores found to calculate final ranking sheet for this group', []);
-    }
-    return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Error calculating final ranking sheet', []);
-  }
+// ─── 8.3 Legacy combined paper export ───
+// Final standings remain available as analytics via /reports/final-rankings.
+// An official judge score report must never blend judges or categories.
+router.get('/reports/paper/final-ranking-sheet', authenticateToken, (req, res) => {
+  return sendError(res, 410, 'REPORT_REPLACED',
+    'Combined paper reports are no longer available. Select one judge, one category and one contestant group for a judge score report',
+    [{ replacement: '/reports/paper/judge-scoresheet/:judgeId', requiredQuery: ['categoryId', 'groupId'] }]);
 });
 
 // ─── 8.4 GET /reports/paper/judge-scoresheet/:judgeId ───
-router.get('/reports/paper/judge-scoresheet/:judgeId', authenticateToken, async (req, res) => {
+// Scope is enforced in database queries, not by trimming a combined report in
+// the browser. Admins can retrieve any Judge's report; Judges only their own.
+router.get('/reports/paper/judge-scoresheet/:judgeId', authenticateToken, requireJudgeOrAdmin, async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
   try {
     const { judgeId } = req.params;
-
-    const judge = await User.findOne({ _id: judgeId, userType: 'Judge' });
-    if (!judge) {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Judge ID '${judgeId}' has no submitted scores`, []);
+    const { categoryId, groupId } = req.query;
+    if (![judgeId, categoryId, groupId].every((id) => typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id))) {
+      return sendError(res, 400, 'VALIDATION_ERROR',
+        'A valid judgeId, categoryId and groupId are required. A report cannot combine judges, categories or groups',
+        [{ field: 'scope', issue: 'Select exactly one judge, one category and one contestant group' }]);
+    }
+    if (req.user.userType === 'Judge' && req.user._id.toString() !== judgeId.toLowerCase()) {
+      return sendError(res, 403, 'FORBIDDEN', 'Judges can only view their own score reports', []);
     }
 
-    const judgeEntries = await JudgeScore.find({ judgeId });
-    if (!judgeEntries.length) {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Judge ID '${judgeId}' has no submitted scores`, []);
+    const [judge, category, group, configuration] = await Promise.all([
+      User.findOne({ _id: judgeId, userType: 'Judge' }).select('username firstName lastName isActive').lean(),
+      Category.findById(categoryId).select('name weight rubrics isActive').lean(),
+      ContestantGroup.findById(groupId).select('name categoriesIncluded').lean(),
+      Configuration.findOne().select('eventTitle').lean(),
+    ]);
+    if (!judge) return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Judge not found', []);
+    if (!category) return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Category not found', []);
+    if (!group) return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Contestant group not found', []);
+
+    // Include inactive candidates/judges in historical records. Do not use
+    // active-only live-ranking eligibility to erase previously entered scores.
+    const contestants = await Contestant.find({ group: group._id }).select('name label group isActive').lean();
+    const scores = await JudgeScore.find({
+      judgeId: judge._id,
+      categoryId: category._id,
+      contestantId: { $in: contestants.map((contestant) => contestant._id) },
+    }).select('judgeId categoryId contestantId rubricsScore createdAt updatedAt').lean();
+
+    const isLinked = (group.categoriesIncluded ?? []).some((id) => id.toString() === category._id.toString());
+    if (!isLinked && scores.length === 0) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'The selected group does not include this category and has no historical scores for this judge/category scope', []);
     }
-
-    const allContestants = await Contestant.find();
-    const allCategories = await Category.find();
-
-    const contestants = allContestants.map((contestant) => {
-      const categories = allCategories.map((category) => {
-        const scoreEntry = judgeEntries.find(
-          (entry) =>
-            entry.categoryId.toString() === category._id.toString() &&
-            entry.contestantId.toString() === contestant._id.toString(),
-        );
-        const categoryScore = (scoreEntry?.rubricsScore || []).reduce(
-          (sum, item) => sum + Number(item.score || 0),
-          0,
-        );
-        return {
-          categoryName: `${category.name} (${category.weight}%)`,
-          score: categoryScore,
-        };
-      });
-
-      return {
-        rank: 1,
-        nameAndLabel: `${contestant.label} - ${contestant.name}`,
-        categoryBreakdown: categories,
-        final_candidate_score: categories.reduce((sum, item) => sum + item.score, 0),
-      };
-    });
-
-    contestants.sort((a, b) => b.final_candidate_score - a.final_candidate_score);
-    const ranked = contestants.map((item, index) => ({ ...item, rank: index + 1 }));
-
-    return sendSuccess(
-      res,
-      {
-        header: {
-          institution: 'Jose Rizal Memorial State University',
-          college: 'College of Computing Studies',
-          title: `MR & MS CCS 2026 ${judge.firstName} ${judge.lastName} Scoresheet`,
-        },
-        judgeName: `${judge.firstName} ${judge.lastName}`,
-        contestants: ranked,
-      },
-      'Judge scoresheet retrieved successfully',
-      200,
-    );
+    return sendSuccess(res, buildJudgeCategoryReport({ configuration, judge, category, group, contestants, scores }),
+      'Judge category score report retrieved successfully', 200);
   } catch (error) {
-    if (error.name === 'CastError') {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', `Judge ID has no submitted scores`, []);
-    }
-    return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Error generating judge scoresheet', []);
+    return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Error generating judge category score report', []);
   }
 });
 

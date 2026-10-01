@@ -1,1097 +1,292 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Printer } from 'lucide-vue-next'
-import { useRouter } from 'vue-router'
-import Sidebar from '@/components/Sidebar.vue'
-import api from '@/services/api.js'
-import mrMsLogo from '@/assets/img/mr-ms-css-logo.png'
-import ccsLogo from '@/assets/img/ccs-logo.png'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { FileCheck2, FileText, ListChecks, Printer, RefreshCw, ShieldCheck, UserRound } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
+import Sidebar from '@/components/Sidebar.vue';
+import JudgeScoreReportPaper from '@/components/JudgeScoreReportPaper.vue';
+import { getJudgeCategoryReport, getReportOptions } from '@/services/reportService.js';
+import { formatReportDate, reportStatusLabel } from '@/utils/reportFormat.js';
+import starImage from '@/assets/img/star.png';
 
-const router = useRouter()
-const selectedGroup = ref('None')
-const contestantGroups = ref([])
-const finalRankings = ref([])
-const votingProgress = ref([])
-const isLoading = ref(true)
-const isRankingsLoading = ref(false)
-const rankingsError = ref('')
-const groupsError = ref('')
-const isMobile = ref(false)
-const isSidebarCollapsed = ref(false)
-const isMobileSidebarOpen = ref(false)
-const isMenuHidden = ref(false)
-const printMode = ref('')
-const paperJudgeReport = ref(null)
-const printError = ref('')
-const isCategoryPickerOpen = ref(false)
-const isPreparingCategorySheet = ref(false)
-const selectedCategoryName = ref('')
+const router = useRouter();
+const isMobile = ref(false);
+const isSidebarCollapsed = ref(false);
+const isMobileSidebarOpen = ref(false);
+const options = ref({ judges: [], categories: [], groups: [] });
+const selectedJudgeId = ref('');
+const selectedCategoryId = ref('');
+const selectedGroupId = ref('');
+const isLoadingOptions = ref(false);
+const optionsError = ref('');
+const isPreparing = ref(false);
+const reportError = ref('');
+const report = ref(null);
+const isPrinting = ref(false);
+const printSnapshot = ref(null);
+const printArea = ref(null);
+let optionsController;
+let reportController;
+let optionsRequest = 0;
+let reportRequest = 0;
+let mounted = false;
+
+const selectedCategory = computed(() => options.value.categories.find((category) => category._id === selectedCategoryId.value));
+const linkedGroups = computed(() => options.value.groups.filter((group) => group.categoriesIncluded?.includes(selectedCategoryId.value)));
+const historicalGroups = computed(() => options.value.groups.filter((group) => !group.categoriesIncluded?.includes(selectedCategoryId.value)));
+const hasScope = computed(() => Boolean(selectedJudgeId.value && selectedCategoryId.value && selectedGroupId.value));
+const scopeMatches = computed(() => report.value?.scope.judgeId === selectedJudgeId.value &&
+  report.value?.scope.categoryId === selectedCategoryId.value && report.value?.scope.groupId === selectedGroupId.value);
+const currentReport = computed(() => scopeMatches.value && !isPreparing.value && !reportError.value ? report.value : null);
+const printableReport = computed(() => printSnapshot.value ?? (currentReport.value?.canPrint ? currentReport.value : null));
+const orientation = computed(() => (printableReport.value?.criteria.length ?? 0) > 4 ? 'landscape' : 'portrait');
+const selectorsDisabled = computed(() => isLoadingOptions.value || isPreparing.value || isPrinting.value);
 
 function updateViewportState() {
-  const mobileMode = window.innerWidth < 768
-  isMobile.value = mobileMode
-
-  if (mobileMode) {
-    isMobileSidebarOpen.value = false
-    isSidebarCollapsed.value = false
-    return
-  }
-
-  isMobileSidebarOpen.value = false
+  isMobile.value = window.innerWidth < 768;
+  isMobileSidebarOpen.value = false;
+  if (isMobile.value) isSidebarCollapsed.value = false;
 }
 
-function handleScrollState() {
-  if (!isMobile.value) {
-    isMenuHidden.value = false
-    return
-  }
-
-  isMenuHidden.value = (window.scrollY || window.pageYOffset) > 12
+function clearSelectionReport() {
+  reportRequest += 1;
+  reportController?.abort();
+  isPreparing.value = false;
+  report.value = null;
+  printSnapshot.value = null;
+  reportError.value = '';
 }
 
-function handleLogout() {
-  localStorage.removeItem('token')
-  localStorage.removeItem('user')
-  router.push('/login')
-}
+watch(selectedCategoryId, () => { selectedGroupId.value = ''; });
+watch([selectedJudgeId, selectedCategoryId, selectedGroupId], clearSelectionReport);
 
-const categoryColumns = computed(() => {
-  const categories = new Map()
-
-  finalRankings.value.forEach(ranking => {
-    ranking.categoryScores?.forEach(score => {
-      if (!categories.has(score.categoryName)) {
-        categories.set(score.categoryName, {
-          name: score.categoryName,
-          weight: score.weight
-        })
-      }
-    })
-  })
-
-  return [...categories.values()]
-})
-const selectedGroupName = computed(() => {
-  if (selectedGroup.value === 'None') return 'All Ranking'
-  return contestantGroups.value.find(group => group._id === selectedGroup.value)?.name || 'Final Ranking'
-})
-const judgeScoreCategories = computed(() => paperJudgeReport.value?.contestants?.[0]?.categoryBreakdown || [])
-const categorySheetRows = computed(() => {
-  return (paperJudgeReport.value?.contestants || [])
-    .map(contestant => ({
-      ...contestant,
-      categoryScore: contestant.categoryBreakdown?.find(category => category.categoryName === selectedCategoryName.value)?.score ?? 0,
-    }))
-    .sort((left, right) => Number(right.categoryScore) - Number(left.categoryScore))
-    .map((contestant, index) => ({ ...contestant, rank: index + 1 }))
-})
-const paperJudgeLabel = computed(() => {
-  const judgeName = paperJudgeReport.value?.judgeName
-  const judgeIndex = votingProgress.value.findIndex(judge => judge.judgeName === judgeName)
-  return judgeIndex >= 0 ? `Judge ${judgeIndex + 1}` : 'Judge'
-})
-
-const stars = [
-  { left: '8%', top: '24%' },
-  { left: '19%', top: '72%' },
-  { left: '31%', top: '38%' },
-  { left: '47%', top: '18%' },
-  { left: '58%', top: '68%' },
-  { left: '72%', top: '31%' },
-  { left: '83%', top: '74%' },
-  { left: '93%', top: '43%' }
-]
-
-function unwrapData(response) {
-  return response?.data ?? response
-}
-
-function getScore(ranking, categoryName) {
-  const score = ranking.categoryScores?.find(item => item.categoryName === categoryName)
-  return score?.weightedScore ?? 0
-}
-
-async function fetchRankings() {
-  isRankingsLoading.value = true
-  rankingsError.value = ''
-
+async function loadOptions() {
+  optionsController?.abort();
+  optionsController = new AbortController();
+  const request = ++optionsRequest;
+  isLoadingOptions.value = true;
+  optionsError.value = '';
+  clearSelectionReport();
   try {
-    if (selectedGroup.value !== 'None') {
-      const response = await api.get('/reports/final-rankings', {
-        params: { groupId: selectedGroup.value }
-      })
-      const report = unwrapData(response)
-      finalRankings.value = Array.isArray(report?.rankings)
-        ? report.rankings.map(ranking => ({ ...ranking, group: report.group || selectedGroupName.value }))
-        : []
-      return
-    }
-
-    if (contestantGroups.value.length === 0) {
-      finalRankings.value = []
-      return
-    }
-
-    const reports = await Promise.all(contestantGroups.value.map(async group => {
-      const response = await api.get('/reports/final-rankings', {
-        params: { groupId: group._id }
-      })
-      return unwrapData(response)
-    }))
-
-    finalRankings.value = reports
-      .flatMap((report, index) => (report?.rankings || []).map(ranking => ({
-        ...ranking,
-        group: report.group || contestantGroups.value[index]?.name || '',
-      })))
-      .sort((left, right) => right.final_candidate_score - left.final_candidate_score)
-      .map((ranking, index) => ({ ...ranking, rank: index + 1 }))
+    const data = await getReportOptions(optionsController.signal);
+    if (!mounted || request !== optionsRequest) return;
+    options.value = data;
+    // Retain explicit choices on retry only when their records still exist.
+    if (!data.judges.some((judge) => judge._id === selectedJudgeId.value)) selectedJudgeId.value = '';
+    if (!data.categories.some((category) => category._id === selectedCategoryId.value)) selectedCategoryId.value = '';
+    if (!data.groups.some((group) => group._id === selectedGroupId.value)) selectedGroupId.value = '';
   } catch (error) {
-    finalRankings.value = []
-    rankingsError.value = error?.message || 'Unable to load final rankings.'
+    if (!mounted || request !== optionsRequest || error?.code === 'ERR_CANCELED') return;
+    optionsController.abort();
+    optionsError.value = error?.message || 'Unable to load judges, categories and contestant groups.';
   } finally {
-    isRankingsLoading.value = false
+    if (mounted && request === optionsRequest) isLoadingOptions.value = false;
   }
 }
 
-async function loadReportData() {
-  isLoading.value = true
-  groupsError.value = ''
-
-  const [groupsResult, progressResult] = await Promise.allSettled([
-    api.get('/contestant-groups'),
-    api.get('/reports/voting-progress')
-  ])
-
-  if (groupsResult.status === 'fulfilled') {
-    const groups = unwrapData(groupsResult.value)
-    contestantGroups.value = Array.isArray(groups) ? groups : []
-  } else {
-    contestantGroups.value = []
-    groupsError.value = groupsResult.reason?.message || 'Unable to load contestant groups.'
-  }
-
-  if (progressResult.status === 'fulfilled') {
-    const progress = unwrapData(progressResult.value)
-    votingProgress.value = Array.isArray(progress) ? progress : []
-  } else {
-    votingProgress.value = []
-  }
-
-  await fetchRankings()
-  isLoading.value = false
-}
-
-async function printJudgeVotes() {
-  printMode.value = 'progress'
-  await nextTick()
-  window.print()
-}
-
-async function printFinalRanking() {
-  if (finalRankings.value.length === 0) return
-  printMode.value = 'ranking'
-  await nextTick()
-  window.print()
-}
-
-async function fetchJudgePaperReport(judgeId) {
-  const response = await api.get(`/reports/paper/judge-scoresheet/${judgeId}`)
-  const report = unwrapData(response)
-  if (!Array.isArray(report?.contestants)) {
-    throw new Error('The judge scoresheet is unavailable.')
-  }
-  paperJudgeReport.value = report
-  return report
-}
-
-async function printJudgeScoresheet(judge) {
-  printError.value = ''
+async function prepareReport() {
+  if (!hasScope.value || selectorsDisabled.value || optionsError.value) return;
+  reportController?.abort();
+  reportController = new AbortController();
+  const request = ++reportRequest;
+  const scope = { judgeId: selectedJudgeId.value, categoryId: selectedCategoryId.value, groupId: selectedGroupId.value };
+  isPreparing.value = true;
+  report.value = null;
+  reportError.value = '';
   try {
-    await fetchJudgePaperReport(judge.judgeId)
-    printMode.value = 'scoresheet'
-    await nextTick()
-    window.print()
+    const data = await getJudgeCategoryReport(scope, reportController.signal);
+    if (mounted && request === reportRequest) report.value = data;
   } catch (error) {
-    printError.value = error?.message || 'Unable to prepare the judge scoresheet.'
-  }
-}
-
-async function prepareCategoryScoresheet(judge) {
-  printError.value = ''
-  isPreparingCategorySheet.value = true
-  try {
-    const report = await fetchJudgePaperReport(judge.judgeId)
-    const categories = report.contestants?.[0]?.categoryBreakdown || []
-    if (categories.length === 0) throw new Error('No category scores are available for this judge.')
-    selectedCategoryName.value = categories[0].categoryName
-    isCategoryPickerOpen.value = true
-  } catch (error) {
-    printError.value = error?.message || 'Unable to prepare the category scoresheet.'
+    if (!mounted || request !== reportRequest || error?.code === 'ERR_CANCELED') return;
+    reportError.value = error?.message || 'Unable to prepare this judge category report.';
   } finally {
-    isPreparingCategorySheet.value = false
+    if (mounted && request === reportRequest) isPreparing.value = false;
   }
 }
 
-async function printSelectedCategoryScoresheet() {
-  if (!selectedCategoryName.value || categorySheetRows.value.length === 0) return
-  isCategoryPickerOpen.value = false
-  printMode.value = 'category-scoresheet'
-  await nextTick()
-  window.print()
+function capturePrintSnapshot() {
+  // Printing uses the exact preview, not a fresh request that could silently
+  // include edits the administrator has never reviewed.
+  if (!printSnapshot.value && currentReport.value?.canPrint) {
+    printSnapshot.value = JSON.parse(JSON.stringify(currentReport.value));
+  }
 }
 
-function closeCategoryPicker() {
-  isCategoryPickerOpen.value = false
-  paperJudgeReport.value = null
+function afterPrint() {
+  printSnapshot.value = null;
+  isPrinting.value = false;
 }
 
-function clearPrintReport() {
-  printMode.value = ''
-  paperJudgeReport.value = null
+async function printReport() {
+  if (!currentReport.value?.canPrint || isPrinting.value) return;
+  isPrinting.value = true;
+  capturePrintSnapshot();
+  try {
+    await nextTick();
+    await document.fonts?.ready;
+    if (!mounted) return;
+    // Local paper logos should be decoded before opening the print dialog.
+    await Promise.all([...printArea.value.querySelectorAll('img')].map((image) => image.decode().catch(() => {})));
+    if (mounted) window.print();
+  } catch {
+    reportError.value = 'Unable to open the print dialog. Please refresh the report and try again.';
+    afterPrint();
+  }
 }
 
-watch(selectedGroup, () => {
-  if (!isLoading.value) fetchRankings()
-})
+function handleLogout() { router.push('/login'); }
 
 onMounted(() => {
-  updateViewportState()
-  handleScrollState()
-  window.addEventListener('resize', updateViewportState)
-  window.addEventListener('scroll', handleScrollState, { passive: true })
-  window.addEventListener('afterprint', clearPrintReport)
-  loadReportData()
-})
+  mounted = true;
+  updateViewportState();
+  window.addEventListener('resize', updateViewportState);
+  window.addEventListener('beforeprint', capturePrintSnapshot);
+  window.addEventListener('afterprint', afterPrint);
+  loadOptions();
+});
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', updateViewportState)
-  window.removeEventListener('scroll', handleScrollState)
-  window.removeEventListener('afterprint', clearPrintReport)
-})
+  mounted = false;
+  optionsController?.abort();
+  reportController?.abort();
+  window.removeEventListener('resize', updateViewportState);
+  window.removeEventListener('beforeprint', capturePrintSnapshot);
+  window.removeEventListener('afterprint', afterPrint);
+});
 </script>
 
 <template>
-  <div class="admin-frame">
-    <div
-      class="admin-dashboard"
-      :style="{ '--sidebar-width': isMobile ? '0px' : isSidebarCollapsed ? '60px' : '218px' }"
-      :class="{
-        'sidebar-collapsed': isSidebarCollapsed && !isMobile,
-        'mobile-sidebar-open': isMobileSidebarOpen && isMobile,
-      }"
-    >
-      <button
-        v-if="isMobile"
-        class="mobile-hamburger"
-        :class="{ 'is-hidden': isMenuHidden }"
-        type="button"
-        aria-label="Open navigation menu"
-        :aria-expanded="isMobileSidebarOpen"
-        @click="isMobileSidebarOpen = !isMobileSidebarOpen"
-      >
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
+  <div class="admin-frame" :style="{ '--star-image': `url(${starImage})` }">
+    <div class="admin-dashboard" :style="{ '--sidebar-width': isMobile ? '0px' : isSidebarCollapsed ? '60px' : '218px' }">
+      <button v-if="isMobile" class="mobile-hamburger" type="button" aria-label="Open navigation menu" aria-controls="reports-navigation" :aria-expanded="isMobileSidebarOpen" @click="isMobileSidebarOpen = !isMobileSidebarOpen"><span></span><span></span><span></span></button>
+      <div v-if="isMobile && isMobileSidebarOpen" class="mobile-sidebar-overlay" @click="isMobileSidebarOpen = false"></div>
+      <Sidebar id="reports-navigation" active-item="REPORTS" :is-mobile="isMobile" :is-sidebar-collapsed="isSidebarCollapsed" :is-mobile-sidebar-open="isMobileSidebarOpen" @toggle-sidebar="isSidebarCollapsed = !isSidebarCollapsed" @close-mobile-sidebar="isMobileSidebarOpen = false" @toggle-mobile-sidebar="isMobileSidebarOpen = !isMobileSidebarOpen" @logout="handleLogout" />
 
-      <div
-        v-if="isMobile && isMobileSidebarOpen"
-        class="mobile-sidebar-overlay"
-        @click="isMobileSidebarOpen = false"
-      ></div>
+      <main class="main-content">
+        <div class="report-content">
+          <header class="page-header"><h1>REPORTS</h1></header>
+          <div class="reports-intro"><div><h2>JUDGE CATEGORY SCORE RECORDS</h2><p>An individual record of one judge's entered scores, per criterion and per candidate.</p></div><RouterLink to="/dashboard" class="dashboard-link">Live scoring monitor <span aria-hidden="true">↗</span></RouterLink></div>
 
-      <Sidebar
-        active-item="REPORTS"
-        :is-mobile="isMobile"
-        :is-sidebar-collapsed="isSidebarCollapsed"
-        :is-mobile-sidebar-open="isMobileSidebarOpen"
-        @toggle-sidebar="isSidebarCollapsed = !isSidebarCollapsed"
-        @close-mobile-sidebar="isMobileSidebarOpen = false"
-        @toggle-mobile-sidebar="isMobileSidebarOpen = !isMobileSidebarOpen"
-        @logout="handleLogout"
-      />
+          <section class="scope-rule" aria-label="Report scope rule"><ShieldCheck :size="19" aria-hidden="true" /><div><strong>1 report = 1 judge = 1 category</strong><p>Male, Female and different pageants are kept in separate group reports. Only the selected judge signs.</p></div></section>
 
-      <main id="dashboard" class="main-content">
-        <div class="dashboard-content">
-          <div class="report-content">
-            <div class="mx-auto w-full max-w-7xl space-y-4">
-      <header class="relative isolate flex h-32 items-start overflow-hidden rounded-xl bg-[#08056d] px-4 pt-3 text-white shadow-sm sm:px-5">
-        <div
-          class="pointer-events-none absolute inset-0 -z-10 opacity-70"
-          style="background-image: radial-gradient(circle at 12% 32%, #fff 0 1px, transparent 2px), radial-gradient(circle at 34% 62%, #c7d2fe 0 1px, transparent 2px), radial-gradient(circle at 68% 16%, #fff 0 1px, transparent 2px), radial-gradient(circle at 88% 54%, #dbeafe 0 1px, transparent 2px)"
-          aria-hidden="true"
-        ></div>
-        <svg class="pointer-events-none absolute inset-0 -z-10 h-full w-full opacity-40" viewBox="0 0 600 96" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M420 14 470 47 512 24M470 47 452 82M512 24 545 10" fill="none" stroke="#bfdbfe" stroke-width=".6" />
-          <circle cx="420" cy="14" r="1.5" fill="#e0f2fe" />
-          <circle cx="470" cy="47" r="1.5" fill="#e0f2fe" />
-          <circle cx="512" cy="24" r="1.5" fill="#e0f2fe" />
-          <circle cx="452" cy="82" r="1.5" fill="#e0f2fe" />
-          <circle cx="545" cy="10" r="1.5" fill="#e0f2fe" />
-        </svg>
-        <span
-          v-for="(star, index) in stars"
-          :key="index"
-          class="pointer-events-none absolute h-1 w-1 rounded-full bg-sky-100 shadow-[0_0_8px_2px_rgba(191,219,254,0.65)]"
-          :style="star"
-          aria-hidden="true"
-        ></span>
-        <h1 class="relative z-[1] font-croparo text-[34px] font-medium leading-none tracking-normal text-[#e4eaff] [text-shadow:0_0_7px_rgba(142,171,255,0.4)] uppercase max-[767px]:w-full max-[767px]:text-center max-[767px]:text-[clamp(1.2rem,4vw,2.125rem)] max-[767px]:tracking-[0.08em]">Final Ranking</h1>
-      </header>
+          <div v-if="optionsError" class="notice notice-error" role="alert"><strong>Report selections could not be loaded.</strong><span>{{ optionsError }}</span><button class="text-button" type="button" :disabled="isLoadingOptions" @click="loadOptions">Retry connection</button></div>
 
-      <section aria-labelledby="ranking-title" class="space-y-8">
-        <div class="flex min-h-[30px] flex-wrap items-center gap-3">
-          <h2 id="ranking-title" class="shrink-0 text-base font-bold text-blue-900">Filter:</h2>
-          <div class="flex flex-wrap gap-2" role="group" aria-label="Filter rankings by contestant group">
-            <button
-              type="button"
-              class="rounded-full px-3 py-2 text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 sm:px-4"
-              :class="selectedGroup === 'None' ? 'bg-gradient-to-r from-blue-600 to-blue-900 text-white' : 'bg-gray-200 text-slate-800 hover:bg-gray-300'"
-              :aria-pressed="selectedGroup === 'None'"
-              @click="selectedGroup = 'None'"
-            >
-              None (Show All)
-            </button>
-            <button
-              v-for="group in contestantGroups"
-              :key="group._id"
-              type="button"
-              class="rounded-full px-3 py-2 text-base font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 sm:px-4"
-              :class="selectedGroup === group._id ? 'bg-gradient-to-r from-blue-600 to-blue-900 text-white' : 'bg-gray-200 text-slate-800 hover:bg-gray-300'"
-              :aria-pressed="selectedGroup === group._id"
-              @click="selectedGroup = group._id"
-            >
-              {{ group.name }}
-            </button>
-          </div>
-          <button
-            type="button"
-            class="print:hidden inline-flex items-center gap-2 rounded-sm bg-blue-950 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="isLoading || isRankingsLoading || finalRankings.length === 0"
-            @click="printFinalRanking"
-          >
-            <Printer class="h-4 w-4" aria-hidden="true" />
-            PRINT FINAL RANKING
-          </button>
-        </div>
+          <section class="report-builder" aria-labelledby="report-builder-title" :aria-busy="isLoadingOptions || isPreparing">
+            <div class="section-heading"><h3 id="report-builder-title"><FileText :size="18" aria-hidden="true" /> SELECT REPORT SCOPE</h3><span v-if="isLoadingOptions" class="loading-label" role="status"><RefreshCw :size="13" class="spinning" aria-hidden="true" /> Loading selections…</span><span v-else class="subtle">All three selections are required</span></div>
+            <form @submit.prevent="prepareReport">
+              <div class="scope-selectors">
+                <label for="report-judge"><span>Judge</span><select id="report-judge" v-model="selectedJudgeId" required :disabled="selectorsDisabled || Boolean(optionsError)"><option disabled value="">Select one judge</option><option v-for="judge in options.judges" :key="judge._id" :value="judge._id">{{ judge.firstName }} {{ judge.lastName }}{{ judge.isActive === false ? ' (inactive · records retained)' : '' }}</option></select><small>Only this judge's own scores are included.</small></label>
+                <label for="report-category"><span>Category</span><select id="report-category" v-model="selectedCategoryId" required :disabled="selectorsDisabled || Boolean(optionsError)"><option disabled value="">Select one category</option><option v-for="category in options.categories" :key="category._id" :value="category._id">{{ category.name }}{{ category.isActive === false ? ' (inactive)' : '' }}</option></select><small>Criteria are shown separately, never across categories.</small></label>
+                <label for="report-group"><span>Pageant / Contestant group</span><select id="report-group" v-model="selectedGroupId" required :disabled="selectorsDisabled || !selectedCategoryId || Boolean(optionsError)"><option disabled value="">{{ selectedCategoryId ? 'Select one group' : 'Choose a category first' }}</option><optgroup v-if="linkedGroups.length" label="Groups linked to this category"><option v-for="group in linkedGroups" :key="group._id" :value="group._id">{{ group.name }}</option></optgroup><optgroup v-if="historicalGroups.length" label="Other groups — historical records only"><option v-for="group in historicalGroups" :key="group._id" :value="group._id">{{ group.name }} (historical scope)</option></optgroup></select><small>No “All groups” option. Male/Female remain separate.</small></label>
+              </div>
+              <p v-if="selectedCategory && linkedGroups.length === 0" class="setup-note">This category has no linked groups. A historical report is available only if the selected judge has saved scores for that group.</p>
+              <p v-if="!isLoadingOptions && !optionsError && (!options.judges.length || !options.categories.length || !options.groups.length)" class="setup-note">Add judges, categories and contestant groups in event configuration before preparing reports.</p>
+              <div class="builder-actions"><button class="button button-primary" type="submit" :disabled="!hasScope || selectorsDisabled || Boolean(optionsError)"><RefreshCw v-if="isPreparing" :size="15" class="spinning" aria-hidden="true" /><FileText v-else :size="15" aria-hidden="true" />{{ isPreparing ? 'Preparing report…' : currentReport ? 'Refresh report' : 'Generate report' }}</button><button class="button button-secondary" type="button" :disabled="!currentReport?.canPrint || isPrinting" @click="printReport"><Printer :size="15" aria-hidden="true" />{{ isPrinting ? 'Print dialog open…' : 'Print / Save as PDF' }}</button><span class="subtle">One scope per PDF or printed record.</span></div>
+            </form>
+          </section>
 
-        <p v-if="groupsError" class="text-sm font-medium text-red-700" role="alert">{{ groupsError }}</p>
+          <div v-if="reportError" class="notice notice-error" role="alert"><strong>The report is unavailable.</strong><span>{{ reportError }}</span><span>No combined or stale report can be printed.</span></div>
 
-        <div class="overflow-hidden rounded-md">
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-max border-separate border-spacing-y-1.5 text-left text-base">
-              <thead>
-                <tr class="bg-gradient-to-r from-yellow-400 from-10% via-blue-700 to-blue-800">
-                  <th scope="col" class="w-14 whitespace-nowrap rounded-l-md px-4 py-4 text-left font-normal text-gray-900">Rank</th>
-                  <th scope="col" class="min-w-24 whitespace-nowrap px-4 py-4 text-left font-normal text-gray-900">Name</th>
-                  <th scope="col" class="min-w-[90px] whitespace-nowrap px-4 py-4 text-center font-normal text-white">Final Weighted pts</th>
-                  <th v-for="category in categoryColumns" :key="category.name" scope="col" class="min-w-24 whitespace-nowrap px-4 py-4 text-center font-normal text-white">
-                    <span class="block">{{ category.name }}</span>
-                    <span v-if="category.weight !== undefined" class="block">({{ category.weight }}%)</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="isLoading || isRankingsLoading">
-                  <td :colspan="3 + categoryColumns.length" class="px-5 py-8 text-center text-base font-medium text-slate-500">
-                    <span class="inline-flex items-center gap-3" role="status">
-                      <span class="h-5 w-5 animate-spin rounded-full border-2 border-blue-800 border-t-transparent"></span>
-                      Loading final rankings...
-                    </span>
-                  </td>
-                </tr>
-                <tr v-else-if="rankingsError">
-                  <td :colspan="3 + categoryColumns.length" class="px-5 py-8 text-center text-base font-medium text-red-700" role="alert">
-                    {{ rankingsError }}
-                  </td>
-                </tr>
-                <tr v-else-if="finalRankings.length === 0">
-                  <td :colspan="3 + categoryColumns.length" class="px-5 py-8 text-center text-base text-slate-500">No rankings available for this group.</td>
-                </tr>
-                <tr v-for="ranking in finalRankings" v-else :key="ranking.contestantId" class="bg-gradient-to-r from-blue-700 via-blue-800 to-[#08056d] text-white">
-                  <td class="rounded-l-md border-r-[8px] border-[#f7f9f8] bg-gradient-to-r from-blue-700 to-slate-400 px-2 py-1 text-center text-base font-bold tabular-nums">{{ ranking.rank }}</td>
-                  <td class="min-w-24 rounded-l-md px-2 py-1">
-                    <span class="flex items-center gap-1 text-base font-medium text-yellow-300"><span class="h-1 w-1 rounded-full bg-yellow-400"></span>{{ ranking.label }}</span>
-                    <span class="mt-0.5 block text-base font-bold">{{ ranking.name }}</span>
-                  </td>
-                  <td class="px-2 py-1 text-center font-medium tabular-nums">{{ Number(ranking.final_candidate_score || 0).toFixed(1) }} pts</td>
-                  <td v-for="category in categoryColumns" :key="category.name" class="px-2 py-1 text-center font-medium tabular-nums text-blue-50">
-                    {{ Number(getScore(ranking, category.name)).toFixed(1) }} pts
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section aria-labelledby="progress-title" class="!mt-20 space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-700/70 pb-2">
-          <h2 id="progress-title" class="text-base font-bold text-blue-950">Judge Voting Progress</h2>
-          <button
-            type="button"
-            class="inline-flex w-fit items-center justify-center gap-2 rounded-sm bg-blue-950 px-6 py-2 text-base font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 print:hidden"
-            @click="printJudgeVotes"
-          >
-            <Printer class="h-4 w-4" aria-hidden="true" />
-            PRINT JUDGE VOTES
-          </button>
-        </div>
-
-        <p v-if="printError" class="text-sm font-medium text-red-700" role="alert">{{ printError }}</p>
-
-        <div class="overflow-hidden">
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[540px] border-separate border-spacing-y-0 text-left text-base">
-              <thead class="bg-gradient-to-r from-[#08056d] to-blue-700 text-white">
-                <tr>
-                  <th scope="col" class="w-14 px-2 py-1.5 text-center font-semibold">Rank</th>
-                  <th scope="col" class="w-20 px-2 py-1.5 font-semibold">Judge</th>
-                  <th scope="col" class="px-2 py-1.5 font-semibold">Progress</th>
-                  <th scope="col" class="px-2 py-1.5 print:hidden"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="isLoading">
-                  <td colspan="4" class="px-5 py-8 text-center text-base font-medium text-slate-500">
-                    <span class="inline-flex items-center gap-3" role="status">
-                      <span class="h-5 w-5 animate-spin rounded-full border-2 border-blue-800 border-t-transparent"></span>
-                      Loading judge progress...
-                    </span>
-                  </td>
-                </tr>
-                <tr v-else-if="votingProgress.length === 0">
-                  <td colspan="4" class="px-5 py-8 text-center text-base text-slate-500">No judge voting progress available.</td>
-                </tr>
-                <tr v-for="(judge, index) in votingProgress" v-else :key="judge.judgeId">
-                  <td class="px-2 py-2 text-center font-bold tabular-nums text-blue-950">{{ index + 1 }}</td>
-                  <td class="px-2 py-2 font-medium text-blue-800">{{ judge.judgeName }}</td>
-                  <td class="px-2 py-2">
-                    <div class="flex items-center gap-3">
-                      <div
-                        class="h-3 min-w-24 flex-1 overflow-hidden rounded-full bg-slate-200"
-                        role="progressbar"
-                        :aria-label="`${judge.judgeName} voting progress`"
-                        aria-valuemin="0"
-                        aria-valuemax="100"
-                        :aria-valuenow="Math.min(100, Math.max(0, Number(judge.progressPercentage) || 0))"
-                      >
-                        <div
-                          class="h-full rounded-full bg-gradient-to-r from-yellow-400 to-blue-600 transition-[width] duration-500"
-                          :style="{ width: `${Math.min(100, Math.max(0, Number(judge.progressPercentage) || 0))}%` }"
-                        ></div>
-                      </div>
-                      <span class="w-20 shrink-0 text-right text-base font-medium tabular-nums text-slate-900">
-                        {{ Number(judge.progressPercentage || 0) }}% progress
-                      </span>
-                    </div>
-                  </td>
-                  <td class="px-2 py-2 text-right print:hidden">
-                    <div class="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-sm border border-blue-900 px-2.5 py-1.5 text-xs font-bold text-blue-950 transition-colors hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
-                        @click="printJudgeScoresheet(judge)"
-                      >
-                        <Printer class="h-3.5 w-3.5" aria-hidden="true" />
-                        FULL SHEET
-                      </button>
-                      <button
-                        type="button"
-                        class="inline-flex items-center gap-1 rounded-sm border border-blue-900 px-2.5 py-1.5 text-xs font-bold text-blue-950 transition-colors hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-wait disabled:opacity-60"
-                        :disabled="isPreparingCategorySheet"
-                        @click="prepareCategoryScoresheet(judge)"
-                      >
-                        <Printer class="h-3.5 w-3.5" aria-hidden="true" />
-                        BY CATEGORY
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-            </div>
-          </div>
+          <section v-if="isPreparing" class="empty-state" role="status"><RefreshCw :size="26" class="spinning" aria-hidden="true" /><h3>Preparing the selected judge's score record…</h3><p>Reading saved scores for exactly one category and one contestant group.</p></section>
+          <template v-else-if="currentReport">
+            <div class="report-preview-heading"><div><h3><FileCheck2 :size="18" aria-hidden="true" /> REPORT PREVIEW</h3><p>{{ currentReport.judge.name }} <span aria-hidden="true">·</span> {{ currentReport.category.name }} <span aria-hidden="true">·</span> {{ currentReport.group.name }}</p></div><span class="record-status" :data-status="currentReport.status">{{ reportStatusLabel(currentReport.status) }}</span></div>
+            <div class="report-statistics" aria-label="Selected report summary"><article><UserRound :size="16" aria-hidden="true" /><strong>{{ currentReport.summary.totalContestants }}</strong><span>CANDIDATES</span></article><article><ListChecks :size="16" aria-hidden="true" /><strong>{{ currentReport.summary.totalCriteria }}</strong><span>REQUIRED CRITERIA</span></article><article><FileCheck2 :size="16" aria-hidden="true" /><strong>{{ currentReport.summary.completedContestants }}<small> / {{ currentReport.summary.totalContestants }}</small></strong><span>FULLY SCORED CANDIDATES</span></article><article><FileText :size="16" aria-hidden="true" /><strong>{{ currentReport.summary.missingFields }}</strong><span>MISSING FIELDS</span></article></div>
+            <div v-if="currentReport.status === 'no_scores'" class="notice notice-info"><strong>No saved scores exist in this report scope.</strong><span>Unscored fields are shown as —, not zero. Printing is disabled until the judge has at least one saved entry.</span></div>
+            <div v-else-if="currentReport.status === 'needs_review'" class="notice notice-warning"><strong>Saved entries require review.</strong><span>Invalid or duplicate values and removed criteria are preserved in the paper record and clearly marked. Review these entries before certification.</span></div>
+            <div v-else-if="currentReport.status === 'incomplete'" class="notice notice-info"><strong>This score record is incomplete.</strong><span>You can print the entered scores, but missing fields and partial totals remain explicitly marked on the paper.</span></div>
+            <div class="snapshot-info"><p><strong>Saved-data snapshot:</strong> {{ formatReportDate(currentReport.generatedAt) }}</p><p>Later score edits do not change this preview. Use “Refresh report” to prepare a newer record. {{ currentReport.criteria.length > 4 ? 'A4 landscape' : 'A4 portrait' }} layout.</p></div>
+            <section class="paper-preview" aria-label="Paper template preview" tabindex="0"><JudgeScoreReportPaper :report="currentReport" /></section>
+          </template>
+          <section v-else-if="!reportError" class="empty-state"><FileText :size="32" aria-hidden="true" /><h3>Prepare an individual judge report</h3><p>Select a judge, a category and a pageant/group, then generate the report. No judges, categories or groups will be combined.</p></section>
         </div>
       </main>
     </div>
 
-    <div v-if="isCategoryPickerOpen" class="category-picker-backdrop print:hidden" @click.self="closeCategoryPicker">
-      <section class="category-picker" role="dialog" aria-modal="true" aria-labelledby="category-picker-title">
-        <h2 id="category-picker-title" class="text-lg font-bold text-blue-950">Print judge scores by category</h2>
-        <p class="mt-1 text-sm text-slate-600">{{ paperJudgeReport?.judgeName }}</p>
-        <label for="judge-print-category" class="mt-5 block text-sm font-semibold text-slate-800">Category</label>
-        <select id="judge-print-category" v-model="selectedCategoryName" class="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700/30">
-          <option v-for="category in judgeScoreCategories" :key="category.categoryName" :value="category.categoryName">
-            {{ category.categoryName }}
-          </option>
-        </select>
-        <div class="mt-6 flex justify-end gap-2">
-          <button type="button" class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="closeCategoryPicker">Cancel</button>
-          <button type="button" class="inline-flex items-center gap-2 rounded bg-blue-950 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800" @click="printSelectedCategoryScoresheet">
-            <Printer class="h-4 w-4" aria-hidden="true" />
-            Print category
-          </button>
-        </div>
-      </section>
+    <div ref="printArea" class="print-only" :data-orientation="orientation">
+      <JudgeScoreReportPaper v-if="printableReport" :report="printableReport" />
+      <p v-else class="print-selection-notice">No printable judge score record is prepared. Select exactly one judge, one category and one contestant group and generate a report with saved scores before printing.</p>
     </div>
-
-    <section v-if="printMode" class="paper-report" :class="{ 'paper-scoresheet': printMode === 'scoresheet', 'paper-category-sheet': printMode === 'category-scoresheet' }" aria-hidden="true">
-      <template v-if="printMode === 'ranking'">
-        <header class="paper-header">
-          <img :src="mrMsLogo" alt="Mr. and Ms. CCS" />
-          <div class="paper-header-copy">
-            <p>Republic of the Philippines</p>
-            <p>Jose Rizal Memorial State University</p>
-            <p>College of Computing Studies</p>
-          </div>
-          <img :src="ccsLogo" alt="College of Computing Studies" />
-        </header>
-        <h1 class="paper-title">Mr. &amp; Ms. CCS 2026 Final Ranking</h1>
-        <h2 class="paper-subtitle">{{ selectedGroupName }}</h2>
-        <table class="paper-table ranking-paper-table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Name &amp; Label</th>
-              <th>Group</th>
-              <th>Weigh</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="ranking in finalRankings" :key="ranking.contestantId">
-              <td class="paper-center">{{ ranking.rank }}</td>
-              <td>
-                <strong>{{ ranking.label }}</strong>
-                <strong class="paper-name">{{ ranking.name }}</strong>
-              </td>
-              <td>{{ ranking.group }}</td>
-              <td class="paper-center"><strong>{{ Number(ranking.final_candidate_score || 0).toFixed(1) }}%</strong></td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="paper-declaration">We hereby declare the computed score above is accurate and is final.</p>
-        <div class="paper-signatures">
-          <div v-for="(judge, index) in votingProgress" :key="judge.judgeId">
-            <span></span>
-            <strong>{{ judge.judgeName }}</strong>
-            <em>Judge {{ index + 1 }}</em>
-          </div>
-        </div>
-      </template>
-
-      <template v-else-if="printMode === 'scoresheet' && paperJudgeReport">
-        <header class="paper-header paper-header-compact">
-          <img :src="mrMsLogo" alt="Mr. and Ms. CCS" />
-          <div class="paper-header-copy">
-            <p>Republic of the Philippines</p>
-            <p>Jose Rizal Memorial State University</p>
-            <p>College of Computing Studies</p>
-          </div>
-          <img :src="ccsLogo" alt="College of Computing Studies" />
-        </header>
-        <h1 class="paper-title paper-title-compact">{{ paperJudgeReport.header?.title || 'MR & MS CCS 2026 Judge Scoresheet' }}</h1>
-        <table class="paper-table scoresheet-paper-table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Name &amp; Label</th>
-              <th v-for="category in paperJudgeReport.contestants?.[0]?.categoryBreakdown || []" :key="category.categoryName">
-                {{ category.categoryName }}
-              </th>
-              <th>Weigh. Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="contestant in paperJudgeReport.contestants" :key="contestant.nameAndLabel">
-              <td class="paper-center">{{ contestant.rank }}</td>
-              <td><strong>{{ contestant.nameAndLabel }}</strong></td>
-              <td v-for="category in contestant.categoryBreakdown" :key="category.categoryName" class="paper-center">
-                {{ Number(category.score || 0).toFixed(0) }}
-              </td>
-              <td class="paper-center"><strong>{{ Number(contestant.final_candidate_score || 0).toFixed(0) }}</strong></td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="paper-declaration">I hereby confirm that my inputted score above is accurate and final.</p>
-        <div class="paper-single-signature">
-          <span></span>
-          <strong>{{ paperJudgeReport.judgeName }}</strong>
-          <em>{{ paperJudgeLabel }}</em>
-        </div>
-      </template>
-
-      <template v-else-if="printMode === 'category-scoresheet' && paperJudgeReport">
-        <header class="paper-header paper-category-header">
-          <img :src="mrMsLogo" alt="Mr. and Ms. CCS" />
-          <div class="paper-header-copy">
-            <p>Republic of the Philippines</p>
-            <p>Jose Rizal Memorial State University</p>
-            <p>College of Computing Studies</p>
-          </div>
-          <img :src="ccsLogo" alt="College of Computing Studies" />
-        </header>
-        <h1 class="paper-title">MR &amp; MS CCS 2026 Judge Scoresheet</h1>
-        <h2 class="paper-subtitle">{{ selectedCategoryName }}</h2>
-        <p class="category-sheet-judge">Judge: {{ paperJudgeReport.judgeName }}</p>
-        <table class="paper-table category-paper-table">
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Name &amp; Label</th>
-              <th>{{ selectedCategoryName }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="contestant in categorySheetRows" :key="contestant.nameAndLabel">
-              <td class="paper-center">{{ contestant.rank }}</td>
-              <td><strong>{{ contestant.nameAndLabel }}</strong></td>
-              <td class="paper-center"><strong>{{ Number(contestant.categoryScore || 0).toFixed(0) }}</strong></td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="paper-declaration">I hereby confirm that my inputted score above is accurate and final.</p>
-        <div class="paper-single-signature">
-          <span></span>
-          <strong>{{ paperJudgeReport.judgeName }}</strong>
-          <em>{{ paperJudgeLabel }}</em>
-        </div>
-      </template>
-
-      <template v-else-if="printMode === 'progress'">
-        <header class="paper-header">
-          <img :src="mrMsLogo" alt="Mr. and Ms. CCS" />
-          <div class="paper-header-copy">
-            <p>Republic of the Philippines</p>
-            <p>Jose Rizal Memorial State University</p>
-            <p>College of Computing Studies</p>
-          </div>
-          <img :src="ccsLogo" alt="College of Computing Studies" />
-        </header>
-        <h1 class="paper-title">Judge Voting Progress</h1>
-        <table class="paper-table">
-          <thead><tr><th>Rank</th><th>Judge</th><th>Progress</th></tr></thead>
-          <tbody>
-            <tr v-for="(judge, index) in votingProgress" :key="judge.judgeId">
-              <td class="paper-center">{{ index + 1 }}</td>
-              <td>{{ judge.judgeName }}</td>
-              <td class="paper-center">{{ Number(judge.progressPercentage || 0).toFixed(1) }}%</td>
-            </tr>
-          </tbody>
-        </table>
-      </template>
-    </section>
   </div>
 </template>
 
 <style scoped>
-.admin-frame {
-  min-height: 100vh;
-  padding: 0;
-  background: #f3f5f4;
-}
-
-.admin-dashboard {
-  --sidebar-width: 218px;
-  position: relative;
-  min-height: 100vh;
-  overflow: hidden;
-  background: #f3f5f4;
-  color: #101747;
-}
-
-.main-content {
-  display: flex;
-  justify-content: center;
-  min-height: calc(100vh - 24px);
-  margin-left: var(--sidebar-width);
-  padding: clamp(22px, 2.5vw, 56px) clamp(18px, 2.8vw, 58px) 56px;
-  transition: margin-left 0.25s ease;
-}
-
-.dashboard-content {
-  width: min(100%, 1040px);
-  margin: 0 auto;
-  box-sizing: border-box;
-}
-
-.report-content {
-  min-height: 100%;
-  color: #0f172a;
-}
-
-.paper-report {
-  display: none;
-}
-
-.category-picker-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  background: rgb(15 23 42 / 55%);
-}
-
-.category-picker {
-  width: min(100%, 420px);
-  padding: 24px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 20px 50px rgb(15 23 42 / 24%);
-}
-
-.mobile-hamburger {
-  position: fixed;
-  top: 16px;
-  left: 14px;
-  z-index: 30;
-  display: none;
-  width: 38px;
-  height: 34px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 0;
-  border: 1px solid #2d25c8;
-  border-radius: 5px;
-  background: #08065a;
-  box-sizing: border-box;
-  cursor: pointer;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.mobile-hamburger span {
-  display: block;
-  width: 18px;
-  height: 2px;
-  border-radius: 999px;
-  background: #fff;
-}
-
-.mobile-sidebar-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 12;
-  background: rgb(0 0 0 / 42%);
-}
-
-@media (max-width: 767px) {
-  .mobile-hamburger {
-    display: flex;
-  }
-
-  .mobile-hamburger.is-hidden {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateY(-8px);
-  }
-
-  .admin-dashboard {
-    --sidebar-width: 0px;
-    overflow: visible;
-  }
-
-  .main-content {
-    width: 100%;
-    margin-left: 0;
-    padding: 72px 16px 30px;
-    overflow: visible;
-  }
-
-  .dashboard-content {
-    max-width: 100%;
-  }
-}
-
-@media (min-width: 768px) {
-  .admin-dashboard :deep(.sidebar-navigation) {
-    padding-top: 78px;
-  }
-
-  .admin-dashboard :deep(.sidebar-link),
-  .admin-dashboard :deep(.sidebar-link.active) {
-    min-height: 50px;
-  }
-}
-
-@page {
-  size: A4 portrait;
-  margin: 0;
-}
-
-@page ranking {
-  size: A4 portrait;
-  margin: 0;
-}
-
-@page scoresheet {
-  size: A4 landscape;
-  margin: 0;
-}
-
-@page categorysheet {
-  size: A4 portrait;
-  margin: 0;
-}
-
+.admin-frame { min-height: 100vh; padding: 0; background: #f3f5f4; }
+.admin-dashboard { --sidebar-width: 218px; position: relative; min-height: 100vh; overflow: hidden; background: #f3f5f4; color: #101747; }
+.main-content { display: flex; justify-content: center; min-height: 100vh; margin-left: var(--sidebar-width); padding: clamp(22px, 2.5vw, 56px) clamp(18px, 2.8vw, 58px) 56px; transition: margin-left .25s ease; }
+.report-content { width: min(100%, 1240px); min-width: 0; margin: 0 auto; color: #18234e; font-family: 'Poppins', sans-serif; font-size: 13px; }
+.report-content * { box-sizing: border-box; }
+.page-header { position: relative; display: flex; min-height: 130px; align-items: center; overflow: hidden; padding: 0 20px; border: 1px solid rgb(116 148 255 / 22%); border-radius: 10px; background-color: #080a51; background-image: var(--star-image), var(--star-image), var(--star-image), var(--star-image), linear-gradient(110deg, #080a47, #1317a5 54%, #080a47); background-repeat: no-repeat; background-position: 39% 24%, 58% 76%, 76% 30%, 93% 67%, center; background-size: 17px 17px, 12px 12px, 15px 15px, 10px 10px, auto; box-shadow: 0 3px 10px rgb(8 12 65 / 12%); color: #fff; }
+.page-header::before { position: absolute; inset: 0; background-image: linear-gradient(115deg, transparent 47%, rgb(117 155 255 / 30%) 47.15%, transparent 47.4%), linear-gradient(22deg, transparent 37%, rgb(117 155 255 / 24%) 37.15%, transparent 37.4%), linear-gradient(155deg, transparent 74%, rgb(117 155 255 / 20%) 74.15%, transparent 74.4%); content: ''; pointer-events: none; }
+.page-header h1 { position: relative; z-index: 1; margin: 0; color: #e4eaff; font-family: 'Croparo', sans-serif; font-size: 55px; font-weight: 500; line-height: 1; text-shadow: 0 0 7px rgb(142 171 255 / 40%); }
+.reports-intro, .section-heading, .report-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.reports-intro { margin: 24px 0 16px; }
+.reports-intro h2 { margin: 0; font-family: 'Croparo', sans-serif; color: #10146d; font-size: 21px; font-weight: 500; }
+.reports-intro p { margin: 7px 0 0; color: #748097; font-size: 11px; line-height: 1.8; }
+.dashboard-link { display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0; padding: 8px 11px; border: 1px solid #dce1ed; border-radius: 6px; background: #fff; color: #56698e; font-size: 10px; text-decoration: none; }
+.scope-rule { display: flex; align-items: flex-start; gap: 11px; padding: 15px 17px; margin-bottom: 19px; border: 1px solid #d9e2f4; border-radius: 8px; background: #eef3fc; color: #394f82; }
+.scope-rule > svg { flex-shrink: 0; margin-top: 1px; }
+.scope-rule strong { font-size: 13px; font-weight: 600; }
+.scope-rule p { margin: 4px 0 0; color: #7385a6; font-size: 11px; line-height: 1.8; }
+.report-builder { padding: 19px; border: 1px solid #dfe4ee; border-radius: 9px; background: #fff; }
+.section-heading { margin-bottom: 18px; }
+.section-heading h3, .report-preview-heading h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-family: 'Croparo', sans-serif; font-size: 18px; font-weight: 500; color: #2e3c75; }
+.subtle { color: #8a95aa; font-size: 10px; }
+.loading-label { display: inline-flex; align-items: center; gap: 6px; color: #7384a0; font-size: 10px; }
+.scope-selectors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 17px; }
+.scope-selectors label { display: flex; min-width: 0; flex-direction: column; gap: 7px; }
+.scope-selectors label > span { color: #4c5d7e; font-size: 11px; font-weight: 500; }
+.scope-selectors select { width: 100%; min-width: 0; min-height: 39px; padding: 8px 26px 8px 10px; border: 1px solid #d7deec; border-radius: 6px; background: #fff; color: #344673; font: inherit; font-size: 11px; }
+.scope-selectors select:disabled { background: #f8f9fc; color: #95a0b4; cursor: not-allowed; }
+.scope-selectors label > small { color: #95a0b4; font-size: 9px; line-height: 1.8; }
+.setup-note { margin: 13px 0 0; color: #9c7639; font-size: 11px; line-height: 1.8; }
+.builder-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding-top: 17px; margin-top: 17px; border-top: 1px solid #edf0f7; }
+.button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 8px 13px; border: 1px solid transparent; border-radius: 7px; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.button-primary { background: #141c77; color: #fff; }
+.button-secondary { background: #fff; border-color: #d4daea; color: #27346b; }
+.button:hover:not(:disabled) { border-color: #717dcc; box-shadow: 0 2px 7px #142b6710; }
+.button:disabled { opacity: .5; cursor: not-allowed; }
+button:focus-visible, a:focus-visible, select:focus-visible, .paper-preview:focus-visible { outline: 3px solid #738ff4; outline-offset: 3px; }
+.notice { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; margin: 16px 0; padding: 13px 16px; border: 1px solid; border-radius: 8px; font-size: 11px; line-height: 1.8; }
+.notice-error { background: #fff4f1; border-color: #f0cfc7; color: #843a35; }
+.notice-info { background: #edf5fc; border-color: #ccdff1; color: #355b80; }
+.notice-warning { background: #fff8ec; border-color: #eed7ad; color: #956a29; }
+.text-button { padding: 0; border: 0; background: none; color: inherit; cursor: pointer; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.report-preview-heading { margin: 25px 0 14px; }
+.report-preview-heading p { margin: 7px 0 0; color: #7d8aa3; font-size: 11px; }
+.record-status { flex-shrink: 0; padding: 6px 9px; border-radius: 6px; background: #eef0f5; color: #6b7890; font-size: 10px; }
+.record-status[data-status='complete'] { background: #e3f4ed; color: #187554; }
+.record-status[data-status='incomplete'], .record-status[data-status='needs_review'] { background: #fff0d6; color: #90590c; }
+.report-statistics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 13px; }
+.report-statistics article { position: relative; display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 17px 15px; border: 1px solid #292e91; border-radius: 8px; background: linear-gradient(125deg, #151d7e, #090b4f); color: #e9edff; }
+.report-statistics article > svg { position: absolute; top: 16px; right: 14px; color: #8fa4ef; }
+.report-statistics article > strong { font-family: 'Croparo', sans-serif; font-size: 30px; line-height: 1.1; font-weight: 500; }
+.report-statistics strong small { font-size: 16px; color: #b4c1ef; }
+.report-statistics article > span { color: #bdc9f5; font-size: 9px; letter-spacing: .06em; }
+.snapshot-info { margin: 17px 0 12px; color: #8a96ac; font-size: 10px; line-height: 1.8; }
+.snapshot-info p { margin: 3px 0; }
+.snapshot-info strong { color: #617495; font-weight: 500; }
+.paper-preview { width: 100%; max-width: 100%; padding: 16px; overflow-x: auto; border: 1px solid #dfe4ee; border-radius: 9px; background: #e9edf3; }
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 20px; padding: 39px 20px; border: 1px dashed #d3dced; border-radius: 9px; background: #fff; text-align: center; color: #7e8daa; }
+.empty-state h3 { margin: 6px 0 0; color: #3e507d; font-size: 16px; font-weight: 600; }
+.empty-state p { max-width: 470px; margin: 0; color: #8e9ab0; font-size: 11px; line-height: 1.8; }
+.mobile-hamburger { position: fixed; top: 16px; left: 14px; z-index: 30; display: flex; width: 38px; height: 34px; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 0; border: 1px solid #2d25c8; border-radius: 5px; background: #08065a; cursor: pointer; }
+.mobile-hamburger span { display: block; width: 18px; height: 2px; border-radius: 999px; background: #fff; }
+.mobile-sidebar-overlay { position: fixed; inset: 0; z-index: 12; background: rgb(0 0 0 / 42%); }
+.print-only { display: none; }
+.spinning { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 1050px) { .reports-intro { flex-wrap: wrap; gap: 10px; } .scope-selectors { gap: 12px; } .report-statistics article > svg { display: none; } .report-statistics article { padding: 16px 12px; } .report-statistics article > strong { font-size: 26px; } }
+@media (max-width: 767px) { .main-content { width: 100%; margin-left: 0; padding: 72px 16px 30px; } .scope-selectors { grid-template-columns: minmax(0, 1fr); gap: 16px; } .section-heading { flex-wrap: wrap; gap: 7px; } .report-statistics { grid-template-columns: repeat(2, minmax(0, 1fr)); } .report-preview-heading { align-items: flex-start; flex-wrap: wrap; gap: 10px; } .report-builder { padding: 16px; } .paper-preview { padding: 10px; } }
+@media (max-width: 520px) { .page-header { min-height: 100px; padding: 0 16px; } .page-header h1 { font-size: 38px; } .reports-intro h2 { font-size: 18px; } .scope-rule strong { font-size: 12px; } .builder-actions > .subtle { flex-basis: 100%; } }
+@media (prefers-reduced-motion: reduce) { .spinning { animation: none; } .main-content { transition: none; } }
+@page judge-score-portrait { size: A4 portrait; margin: 10mm; }
+@page judge-score-landscape { size: A4 landscape; margin: 10mm; }
 @media print {
-  :global(html),
-  :global(body) {
-    width: 100%;
-    min-height: 100%;
-    margin: 0 !important;
-    background: #fff !important;
-    print-color-adjust: exact;
-    -webkit-print-color-adjust: exact;
-  }
-
-  :global(body *) {
-    visibility: hidden !important;
-  }
-
-  .paper-report,
-  .paper-report * {
-    visibility: visible !important;
-  }
-
-  .paper-report {
-    position: fixed;
-    inset: 8mm;
-    display: block !important;
-    width: auto;
-    min-height: 0;
-    padding: 8mm 7mm;
-    border: 1px solid #1688e8;
-    background: #fff;
-    color: #111;
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 10pt;
-    page: ranking;
-  }
-
-  .paper-report.paper-scoresheet {
-    page: scoresheet;
-  }
-
-  .paper-report.paper-category-sheet {
-    page: categorysheet;
-  }
-
-  .paper-header {
-    display: grid;
-    grid-template-columns: 24mm minmax(0, 1fr) 24mm;
-    align-items: center;
-    gap: 3mm;
-    margin: 0 0 7mm;
-    padding-bottom: 3mm;
-    border-bottom: 1px solid #777;
-    text-align: center;
-    font-size: 9pt;
-    line-height: 1.25;
-  }
-
-  .paper-header p {
-    margin: 0;
-  }
-
-  .paper-header img {
-    display: block;
-    width: 24mm;
-    height: 24mm;
-    object-fit: contain;
-  }
-
-  .paper-category-header img {
-    width: 24mm;
-    height: 24mm;
-  }
-
-  .paper-header-copy {
-    min-width: 0;
-    text-align: center;
-  }
-
-  .paper-header-compact {
-    grid-template-columns: 20mm minmax(0, 1fr) 20mm;
-    margin-bottom: 5mm;
-    padding-bottom: 2mm;
-    font-size: 8pt;
-  }
-
-  .paper-header-compact img {
-    width: 20mm;
-    height: 20mm;
-  }
-
-  .paper-title {
-    margin: 0 0 4mm;
-    text-align: center;
-    font-size: 17pt;
-    font-weight: 700;
-    line-height: 1.2;
-  }
-
-  .paper-title-compact {
-    margin-bottom: 5mm;
-    font-size: 14pt;
-  }
-
-  .paper-subtitle {
-    margin: 0 0 4mm;
-    text-align: center;
-    font-size: 10pt;
-    font-weight: 700;
-  }
-
-  .paper-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-    font-size: 9pt;
-  }
-
-  .paper-table th,
-  .paper-table td {
-    border: 1px solid #222;
-    padding: 2.1mm 2.4mm;
-    vertical-align: top;
-  }
-
-  .paper-table th {
-    text-align: left;
-    font-weight: 700;
-  }
-
-  .ranking-paper-table th:nth-child(1) { width: 14%; }
-  .ranking-paper-table th:nth-child(2) { width: 36%; }
-  .ranking-paper-table th:nth-child(3) { width: 35%; }
-  .ranking-paper-table th:nth-child(4) { width: 15%; }
-
-  .paper-center {
-    text-align: center !important;
-    vertical-align: middle !important;
-  }
-
-  .paper-name {
-    display: block;
-  }
-
-  .paper-declaration {
-    margin: 7mm 0 12mm;
-    font-size: 8pt;
-    font-style: italic;
-  }
-
-  .paper-signatures {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 4mm;
-    margin: 0 2mm;
-  }
-
-  .paper-signatures div,
-  .paper-single-signature {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2mm;
-    font-size: 8pt;
-  }
-
-  .paper-signatures span,
-  .paper-single-signature span {
-    width: 100%;
-    border-top: 1px solid #555;
-  }
-
-  .paper-signatures em,
-  .paper-single-signature em {
-    font-style: italic;
-  }
-
-  .paper-signatures strong,
-  .paper-single-signature strong {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-    text-align: center;
-    font-size: 7.5pt;
-  }
-
-  .paper-single-signature {
-    width: 35mm;
-    margin: 10mm auto 0;
-  }
-
-  .category-sheet-judge {
-    margin: 0 0 4mm;
-    text-align: center;
-    font-size: 9pt;
-  }
-
-  .category-paper-table th:first-child { width: 14%; }
-  .category-paper-table th:nth-child(2) { width: 58%; }
-  .category-paper-table th:nth-child(3) { width: 28%; }
-
-  .scoresheet-paper-table {
-    font-size: 7pt;
-  }
-
-  .scoresheet-paper-table th,
-  .scoresheet-paper-table td {
-    padding: 1.6mm 1.8mm;
-  }
-
-  .scoresheet-paper-table th:first-child { width: 7%; }
-  .scoresheet-paper-table th:nth-child(2) { width: 19%; }
-  .scoresheet-paper-table th:last-child { width: 12%; }
-}
-
-@media (max-width: 520px) {
-  .admin-dashboard :deep(.sidebar) {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(100vw, 360px);
-    height: 100vh;
-    padding: 0 0 10px;
-  }
-
-  .admin-dashboard :deep(.sidebar-brand) {
-    height: 90px;
-    padding-top: 14px;
-  }
-
-  .admin-dashboard :deep(.sidebar-navigation) {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 12px 18px 0;
-  }
-
-  .admin-dashboard :deep(.sidebar-navigation .sidebar-link),
-  .admin-dashboard :deep(.sidebar .sign-out) {
-    gap: 10px;
-    min-height: 52px;
-    padding: 0 12px;
-    font-size: 1.1rem;
-    letter-spacing: 0.05em;
-  }
-
-  .main-content {
-    min-height: 100vh;
-    padding: 10px 8px 24px;
-  }
-
-  .dashboard-content {
-    width: 100%;
-  }
+  :global(html), :global(body) { min-height: 0; margin: 0 !important; padding: 0 !important; background: #fff !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  :global(body > :not(#app)) { display: none !important; }
+  .admin-frame { min-height: 0; background: #fff; }
+  .admin-dashboard { display: none !important; }
+  .print-only { display: block !important; width: 100%; page: judge-score-portrait; }
+  .print-only[data-orientation='landscape'] { page: judge-score-landscape; }
+  .print-selection-notice { color: #111; font: 11pt Arial, sans-serif; }
 }
 </style>

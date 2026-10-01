@@ -1,7 +1,8 @@
-> **Edited contract — Admin Dashboard Live Scoring Monitoring (2026-10-02).**
+> **Edited contract — Admin Dashboard Monitoring and Judge Category Reports (2026-10-02).**
 > This is a duplicate of `API_Contract_v1_0.md`; the original is unchanged.
-> The additions and overrides in **Section 9** document the new dashboard,
-> judge assignments, score validation, and server readiness behavior.
+> The additions and overrides in **Sections 9 and 10** document dashboard
+> monitoring, judge assignments, scoring validation, server readiness and
+> single-judge, single-category, single-group paper reports.
 > These changes are implemented in `frontend/` and `backend/` only.
 > Local development uses the same-origin `/api/v1` path through Vite's proxy.
 > Both `/api/v1` and the legacy `/api/v1-mock` prefix in `backend/` use MongoDB;
@@ -1790,3 +1791,335 @@ workaround.
 judge assignments, submission integrity, same-origin development access and
 server readiness. The original v1.0 contract is preserved above and unchanged
 in its original file.
+
+
+---
+
+## 10. Reports — One Judge, One Category, One Group (2026-10-02 update)
+
+**This section overrides Sections 8.3 and 8.4 of the original contract.**
+Sections 8.1 and 8.2 remain available as progress/standings analytics, not as
+individual judge score records. The dashboard changes in Section 9 are preserved.
+
+### Report rule and purpose
+
+**1 Report = 1 Judge = 1 Category.** Every paper/PDF also has exactly **one
+contestant group** so Male/Female candidates and different pageants never mix.
+For example, Judge One / Playsuit / Pageant Male and Judge One / Playsuit /
+Pageant Female are separate reports. Another category or another judge always
+requires a separately generated report.
+
+The record shows **that judge's own saved values for each criterion and each
+candidate**. It is not a ranking, an all-judge average, a multi-category weighted
+total or a judge-progress printout. Only the selected judge has a signature line.
+Separation is based on the registered `ContestantGroup` ID, not a gender inferred
+from candidate names; registration must keep Male/Female in their proper groups.
+
+### 10.1 `GET /api/v1/reports/paper/judge-scoresheet/:judgeId`
+
+**Access:** authenticated Admins may retrieve any Judge's record. An active
+session belonging to a Judge may retrieve only that Judge's own record. A Judge
+requesting another judge's ID receives `403 FORBIDDEN`.
+
+**Path parameter:** `judgeId` — one 24-character hexadecimal User ObjectId whose
+`userType` is `Judge`.
+
+**Required query parameters:**
+
+| Parameter | Type | Meaning |
+| --- | --- | --- |
+| `categoryId` | ObjectId string | Exactly one competition category. |
+| `groupId` | ObjectId string | Exactly one pageant/contestant group (e.g. Pageant Male). |
+
+There is no default category, no implicit group and no `all`/list value.
+Missing/malformed IDs or arrays/object-valued query parameters return
+`400 VALIDATION_ERROR`. Valid IDs are resolved independently; nonexistent judge,
+category or group IDs return `404 RESOURCE_NOT_FOUND`.
+
+Example:
+
+```http
+GET /api/v1/reports/paper/judge-scoresheet/65f8a123b0a9c12345678901?categoryId=65f8a123b0a9c12345678910&groupId=65f8a123b0a9c12345678930
+Authorization: Bearer <admin-or-own-judge-token>
+```
+
+**Headers:** `Cache-Control: private, no-store`.
+
+**Response (200 OK):** the example has a valid entered zero for one criterion
+and an unscored second criterion. It must not appear complete or fabricate a
+zero for the missing field.
+
+```json
+{
+  "success": true,
+  "message": "Judge category score report retrieved successfully",
+  "data": {
+    "scope": {
+      "judgeId": "65f8a123b0a9c12345678901",
+      "categoryId": "65f8a123b0a9c12345678910",
+      "groupId": "65f8a123b0a9c12345678930"
+    },
+    "header": {
+      "country": "Republic of the Philippines",
+      "institution": "Jose Rizal Memorial State University",
+      "college": "College of Computing Studies",
+      "eventTitle": "2026 Mr & Ms CCS",
+      "title": "Judge Category Score Report"
+    },
+    "judge": {
+      "judgeId": "65f8a123b0a9c12345678901",
+      "name": "Judge One",
+      "username": "judge001",
+      "isActive": true
+    },
+    "category": {
+      "categoryId": "65f8a123b0a9c12345678910",
+      "name": "Playsuit",
+      "weight": 10,
+      "maxPoints": 100,
+      "isActive": true
+    },
+    "group": {
+      "groupId": "65f8a123b0a9c12345678930",
+      "name": "Pageant Male",
+      "isCurrentlyLinked": true
+    },
+    "criteria": [
+      {
+        "rubricsId": "65f8a123b0a9c12345678911",
+        "name": "Stage Presence",
+        "maxPoints": 40,
+        "isCurrent": true
+      },
+      {
+        "rubricsId": "65f8a123b0a9c12345678912",
+        "name": "Poise & Bearing",
+        "maxPoints": 60,
+        "isCurrent": true
+      }
+    ],
+    "rows": [
+      {
+        "rowNumber": 1,
+        "contestantId": "65f8a123b0a9c12345678920",
+        "name": "Candidate One",
+        "label": "First Year (1)",
+        "isActive": true,
+        "scoreSheetId": "65f8a123b0a9c12345678991",
+        "lastSavedAt": "2026-10-02T02:59:55.000Z",
+        "status": "in_progress",
+        "scoredFields": 1,
+        "requiredFields": 2,
+        "missingFields": 1,
+        "reviewFields": 0,
+        "duplicateScoreSheets": 0,
+        "totalScore": "0",
+        "fields": [
+          {
+            "rubricsId": "65f8a123b0a9c12345678911",
+            "score": 0,
+            "recordedValues": [
+              0
+            ],
+            "status": "scored",
+            "issue": null
+          },
+          {
+            "rubricsId": "65f8a123b0a9c12345678912",
+            "score": null,
+            "recordedValues": [],
+            "status": "missing",
+            "issue": null
+          }
+        ]
+      }
+    ],
+    "summary": {
+      "totalContestants": 1,
+      "totalCriteria": 2,
+      "completedContestants": 0,
+      "inProgressContestants": 1,
+      "unscoredContestants": 0,
+      "reviewContestants": 0,
+      "scoredFields": 1,
+      "requiredFields": 2,
+      "missingFields": 1,
+      "reviewFields": 0,
+      "legacyCriteria": 0,
+      "recordedEntries": 1,
+      "isComplete": false
+    },
+    "status": "incomplete",
+    "canPrint": true,
+    "lastSavedAt": "2026-10-02T02:59:55.000Z",
+    "reference": "JCS-CA9B6EC6FEA83822",
+    "snapshotHash": "ca9b6ec6fea8382288f9f5a876fe152e069051900eb0fbcc268246fc65e129e2",
+    "generatedAt": "2026-10-02T03:00:00.000Z"
+  }
+}
+```
+
+#### Backend isolation and historical records
+
+- The query selects scores using **both `judgeId` and `categoryId`**, and limits
+  `contestantId` to members of the selected group. The report builder rechecks
+  all three scopes defensively. No combined response is filtered only in the UI.
+- Include all currently registered candidates in the selected group, including
+  inactive registrations, and allow an Admin to select an inactive judge or
+  category. Changing activity/assignments must not erase a stored score record.
+- A currently linked category/group scope can be previewed with no saved scores:
+  response status is `no_scores`, all fields are missing, totals are `null`,
+  and `canPrint` is false. At least one recorded entry is required for printing.
+- If the category is no longer linked to the selected group, a historical report
+  is still allowed when saved scores exist for that exact judge/category/group.
+  It is flagged with `group.isCurrentlyLinked: false`. Without historical scores,
+  an unrelated group/category combination returns `400 VALIDATION_ERROR`.
+- Current category assignments do not restrict reading historical records;
+  they continue to restrict new score submissions as documented in Section 9.
+- The existing score model stores the latest upserted sheet per
+  `(judgeId, categoryId, contestantId)`. This report is a read-only snapshot of
+  those latest stored values, **not** a newly introduced full revision audit log.
+  Deleted candidates/categories/groups cannot be reconstructed from this model.
+
+#### Criterion values and totals
+
+- `criteria` lists the selected category's current rubrics, followed by any
+  unrecognized/removed rubric IDs present in that scoped judge's latest sheets.
+  Unknown original rubric names cannot be recovered from the existing schema;
+  the report labels them with their IDs and requires review rather than guessing
+  a name or silently omitting an entered value.
+- Each row contains the candidate identity, sequential `rowNumber` (not rank),
+  activity flag, saved sheet ID/time, current-field completion, raw saved field
+  values, row status and `totalScore`. There is no `categoryBreakdown` or
+  cross-category `final_candidate_score` in this response.
+- Each field has `rubricsId`, `score`, `recordedValues`, `status` and `issue`.
+  `status` is `scored`, `missing` or `review`. A valid zero has `score: 0` and
+  `recordedValues: [0]`; a missing field has `score: null` and an empty array.
+- Invalid/out-of-range numeric values are retained exactly as stored and marked
+  for review. Duplicate criterion values are all included in `recordedValues`,
+  not added together or overwritten. Invalid nonnumeric values are preserved as
+  displayable raw values; non-finite numbers are represented textually.
+- If duplicate legacy sheet documents exist for the same scope/candidate, the
+  latest timestamp/ID selects the current displayed sheet and
+  `duplicateScoreSheets` is flagged. The report requires review; it never sums
+  multiple sheet documents into an inflated contestant total.
+- **`totalScore` is a decimal string or `null`.** It sums that candidate's unique,
+  finite numeric saved values from this judge/category only, without weighting,
+  averaging or display rounding. Decimal addition avoids artifacts such as
+  `0.1 + 0.2` appearing as `0.30000000000000004`. Example: `"0"`, `"91"`, `"0.3"`.
+- A raw total includes unique numeric legacy/out-of-range entries so it still
+  records what was saved, but the paper clearly requires review. An ambiguous
+  duplicate/nonnumeric total is `null`, not a guessed number. No entered values
+  also means `null`, not zero. Partial totals remain explicitly labeled.
+
+#### Completion and snapshot metadata
+
+Row statuses are `complete`, `in_progress`, `not_started` or `needs_review`.
+Report statuses are `complete`, `incomplete`, `no_scores` or `needs_review`.
+Completion requires valid saved values for all current required criteria, with
+no review issues. A complete report requires at least one candidate and every
+candidate complete. A category without configured criteria requires review.
+
+`summary` contains candidate/criterion counts, complete/partial/unscored/review
+candidate counts, valid/missing/review field counts, legacy criterion counts and
+the number of recorded entries. Review values are never counted as valid
+completed fields. A saved document is not automatically considered complete.
+
+`generatedAt` identifies preparation time and `lastSavedAt` identifies the latest
+included score change. `snapshotHash` is a SHA-256 content fingerprint excluding
+preparation time; `reference` is its human-readable abbreviated reference. These
+are **not** persisted report IDs, digital signatures, or an immutable audit store.
+The full `scope` and selected judge/category/group metadata are authoritative.
+
+| HTTP status | Code | Meaning |
+| --- | --- | --- |
+| 400 | `VALIDATION_ERROR` | Missing/malformed scope or unrelated category/group without historical scores. |
+| 401 | `UNAUTHORIZED` | Missing, expired, invalid or revoked session. |
+| 403 | `FORBIDDEN` | Judge requesting another judge's report or unsupported role. |
+| 404 | `RESOURCE_NOT_FOUND` | Judge, category or group does not exist. |
+| 500 | `INTERNAL_SERVER_ERROR` | Report retrieval/calculation failed. |
+| 503 | `DATABASE_UNAVAILABLE` | MongoDB connection is unavailable. |
+
+The same rules apply to the legacy `/api/v1-mock` alias implemented in `backend/`.
+
+### 10.2 Combined paper export retired
+
+`GET /api/v1/reports/paper/final-ranking-sheet` now returns
+**410 Gone / `REPORT_REPLACED`** rather than an official-looking record combining
+judges and categories. Its replacement is the scoped endpoint in Section 10.1.
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "REPORT_REPLACED",
+    "message": "Combined paper reports are no longer available. Select one judge, one category and one contestant group for a judge score report",
+    "details": [
+      {
+        "replacement": "/reports/paper/judge-scoresheet/:judgeId",
+        "requiredQuery": ["categoryId", "groupId"]
+      }
+    ]
+  }
+}
+```
+
+`GET /reports/final-rankings` and `GET /reports/voting-progress` remain analytics
+APIs for compatibility. They are no longer rendered/printed as individual judge
+score reports by the Reports page. Live standings/progress are available in the
+admin dashboard.
+
+### 10.3 Reports page and paper behavior
+
+- Preserve the current admin design system: navy constellation header, shared
+  sidebar, Croparo headings, Poppins interface typography and existing controls.
+- Require explicit Judge, Category and Pageant/Group selections. No "All groups",
+  "All categories", all-judge or combined-category print mode exists.
+- Reuse existing paper-template styling and logos: institutional header, blue
+  border, criterion/candidate table, certification paragraph and exactly one
+  signature line labeled with the selected judge's name. No other judge or
+  administrator is included in the signature section.
+- Show every criterion separately, its maximum points, the judge's exact saved
+  entry, raw candidate totals and scoring status. Missing fields print as `—`;
+  zero prints as `0`. No fake zeros, vote percentages or combined weighted totals.
+- Incomplete/review records are allowed to print with their warnings and missing
+  values visible; a record with no saved entries cannot print. "Complete" means
+  scoring complete, not electronic event finalization or an automatically signed
+  document. Signing is manual and does not silently lock later score editing.
+- A4 portrait is used for up to four criterion columns; wider records use A4
+  landscape. Paper content flows normally across pages, with repeating table
+  headers identifying the same judge/category/group. Candidate rows and the
+  single signature block avoid page splitting where possible. There is no
+  fixed-position page that clips/repeats the entire document.
+- The paper displays preparation time in Philippine time (PHT), the record
+  reference and selected scope. The print dialog can save an individual PDF.
+- Preview is a stable saved-data snapshot, **not** a live-updating table. Refresh
+  explicitly to include later score edits. Printing captures the exact preview
+  before opening the dialog and does not silently fetch different scores.
+- Changing scope clears/cancels the old report; canceled/unmounted/late requests
+  cannot replace a newer scope. The client also verifies returned scope IDs before
+  allowing printing. Failed initial/refresh requests never enable stale printouts.
+- Ordinary browser printing without a prepared printable report shows a clear
+  selection instruction, not the admin UI or a combined report. Signature/date
+  lines are blank for the selected judge to complete manually.
+
+### Manual server verification (no frontend test suite)
+
+1. Start the backend/frontend servers and check `/api/v1/health` through the
+   frontend proxy. A 503 readiness result blocks authenticated live-data
+   verification; do not substitute mock scores as official records.
+2. When MongoDB is available, sign in as an Admin and open `/reports`.
+3. Generate Judge One / Playsuit / Pageant Male. Verify individual raw criterion
+   values, exact decimals, valid zeros, missing fields and the single signature.
+4. Switch to Pageant Female, another category, then another judge. Each change
+   must clear the previous report and require a new scoped request.
+5. Print/save PDF. Verify no other judge/category/group appears, the existing
+   institutional paper design is retained, and multi-page rows are not clipped.
+6. Confirm omitted `categoryId`/`groupId` requests fail with 400, a Judge requesting
+   another Judge's record fails with 403, and the former combined paper export
+   returns 410. Inactive/legacy stored entries remain visible and require review
+   when appropriate.
+
+**Reports update:** 2026-10-02. The original `API_Contract_v1_0.md` remains
+unchanged; all report additions and breaking print-contract changes are recorded
+in this edited duplicate.
