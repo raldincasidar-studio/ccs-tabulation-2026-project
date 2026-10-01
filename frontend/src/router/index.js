@@ -12,6 +12,7 @@ import ConfigurationView from '@/views/ConfigurationView.vue';
 import AddContestantGroupView from '@/views/AddContestantGroupView.vue';
 import AddCategoriesView from '@/views/AddCategoriesView.vue';
 import ReportView from '@/views/ReportView.vue';
+import JudgeCategoryReportView from '@/views/JudgeCategoryReportView.vue';
 import LiveControlsView from '@/views/LiveControlsView.vue';
 
 const routes = [
@@ -23,6 +24,12 @@ const routes = [
     path: '/reports',
     name: 'reports',
     component: ReportView,
+    meta: { requiresAuth: true, role: 'Admin' },
+  },
+  {
+    path: '/reports/judge-category',
+    name: 'judge-category-reports',
+    component: JudgeCategoryReportView,
     meta: { requiresAuth: true, role: 'Admin' },
   },
   {
