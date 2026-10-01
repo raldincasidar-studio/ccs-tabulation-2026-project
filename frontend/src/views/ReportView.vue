@@ -1,9 +1,11 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Printer } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import Sidebar from '@/components/Sidebar.vue'
 import api from '@/services/api.js'
+import mrMsLogo from '@/assets/img/mr-ms-css-logo.png'
+import ccsLogo from '@/assets/img/ccs-logo.png'
 
 const router = useRouter()
 const selectedGroup = ref('None')
@@ -18,6 +20,12 @@ const isMobile = ref(false)
 const isSidebarCollapsed = ref(false)
 const isMobileSidebarOpen = ref(false)
 const isMenuHidden = ref(false)
+const printMode = ref('')
+const paperJudgeReport = ref(null)
+const printError = ref('')
+const isCategoryPickerOpen = ref(false)
+const isPreparingCategorySheet = ref(false)
+const selectedCategoryName = ref('')
 
 function updateViewportState() {
   const mobileMode = window.innerWidth < 768
@@ -63,6 +71,25 @@ const categoryColumns = computed(() => {
 
   return [...categories.values()]
 })
+const selectedGroupName = computed(() => {
+  if (selectedGroup.value === 'None') return 'All Ranking'
+  return contestantGroups.value.find(group => group._id === selectedGroup.value)?.name || 'Final Ranking'
+})
+const judgeScoreCategories = computed(() => paperJudgeReport.value?.contestants?.[0]?.categoryBreakdown || [])
+const categorySheetRows = computed(() => {
+  return (paperJudgeReport.value?.contestants || [])
+    .map(contestant => ({
+      ...contestant,
+      categoryScore: contestant.categoryBreakdown?.find(category => category.categoryName === selectedCategoryName.value)?.score ?? 0,
+    }))
+    .sort((left, right) => Number(right.categoryScore) - Number(left.categoryScore))
+    .map((contestant, index) => ({ ...contestant, rank: index + 1 }))
+})
+const paperJudgeLabel = computed(() => {
+  const judgeName = paperJudgeReport.value?.judgeName
+  const judgeIndex = votingProgress.value.findIndex(judge => judge.judgeName === judgeName)
+  return judgeIndex >= 0 ? `Judge ${judgeIndex + 1}` : 'Judge'
+})
 
 const stars = [
   { left: '8%', top: '24%' },
@@ -94,7 +121,9 @@ async function fetchRankings() {
         params: { groupId: selectedGroup.value }
       })
       const report = unwrapData(response)
-      finalRankings.value = Array.isArray(report?.rankings) ? report.rankings : []
+      finalRankings.value = Array.isArray(report?.rankings)
+        ? report.rankings.map(ranking => ({ ...ranking, group: report.group || selectedGroupName.value }))
+        : []
       return
     }
 
@@ -111,7 +140,10 @@ async function fetchRankings() {
     }))
 
     finalRankings.value = reports
-      .flatMap(report => report?.rankings || [])
+      .flatMap((report, index) => (report?.rankings || []).map(ranking => ({
+        ...ranking,
+        group: report.group || contestantGroups.value[index]?.name || '',
+      })))
       .sort((left, right) => right.final_candidate_score - left.final_candidate_score)
       .map((ranking, index) => ({ ...ranking, rank: index + 1 }))
   } catch (error) {
@@ -150,8 +182,73 @@ async function loadReportData() {
   isLoading.value = false
 }
 
-function printJudgeVotes() {
+async function printJudgeVotes() {
+  printMode.value = 'progress'
+  await nextTick()
   window.print()
+}
+
+async function printFinalRanking() {
+  if (finalRankings.value.length === 0) return
+  printMode.value = 'ranking'
+  await nextTick()
+  window.print()
+}
+
+async function fetchJudgePaperReport(judgeId) {
+  const response = await api.get(`/reports/paper/judge-scoresheet/${judgeId}`)
+  const report = unwrapData(response)
+  if (!Array.isArray(report?.contestants)) {
+    throw new Error('The judge scoresheet is unavailable.')
+  }
+  paperJudgeReport.value = report
+  return report
+}
+
+async function printJudgeScoresheet(judge) {
+  printError.value = ''
+  try {
+    await fetchJudgePaperReport(judge.judgeId)
+    printMode.value = 'scoresheet'
+    await nextTick()
+    window.print()
+  } catch (error) {
+    printError.value = error?.message || 'Unable to prepare the judge scoresheet.'
+  }
+}
+
+async function prepareCategoryScoresheet(judge) {
+  printError.value = ''
+  isPreparingCategorySheet.value = true
+  try {
+    const report = await fetchJudgePaperReport(judge.judgeId)
+    const categories = report.contestants?.[0]?.categoryBreakdown || []
+    if (categories.length === 0) throw new Error('No category scores are available for this judge.')
+    selectedCategoryName.value = categories[0].categoryName
+    isCategoryPickerOpen.value = true
+  } catch (error) {
+    printError.value = error?.message || 'Unable to prepare the category scoresheet.'
+  } finally {
+    isPreparingCategorySheet.value = false
+  }
+}
+
+async function printSelectedCategoryScoresheet() {
+  if (!selectedCategoryName.value || categorySheetRows.value.length === 0) return
+  isCategoryPickerOpen.value = false
+  printMode.value = 'category-scoresheet'
+  await nextTick()
+  window.print()
+}
+
+function closeCategoryPicker() {
+  isCategoryPickerOpen.value = false
+  paperJudgeReport.value = null
+}
+
+function clearPrintReport() {
+  printMode.value = ''
+  paperJudgeReport.value = null
 }
 
 watch(selectedGroup, () => {
@@ -163,12 +260,14 @@ onMounted(() => {
   handleScrollState()
   window.addEventListener('resize', updateViewportState)
   window.addEventListener('scroll', handleScrollState, { passive: true })
+  window.addEventListener('afterprint', clearPrintReport)
   loadReportData()
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportState)
   window.removeEventListener('scroll', handleScrollState)
+  window.removeEventListener('afterprint', clearPrintReport)
 })
 </script>
 
@@ -266,6 +365,15 @@ onBeforeUnmount(() => {
               {{ group.name }}
             </button>
           </div>
+          <button
+            type="button"
+            class="print:hidden inline-flex items-center gap-2 rounded-sm bg-blue-950 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="isLoading || isRankingsLoading || finalRankings.length === 0"
+            @click="printFinalRanking"
+          >
+            <Printer class="h-4 w-4" aria-hidden="true" />
+            PRINT FINAL RANKING
+          </button>
         </div>
 
         <p v-if="groupsError" class="text-sm font-medium text-red-700" role="alert">{{ groupsError }}</p>
@@ -331,19 +439,22 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
+        <p v-if="printError" class="text-sm font-medium text-red-700" role="alert">{{ printError }}</p>
+
         <div class="overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full min-w-[540px] border-separate border-spacing-y-0 text-left text-base">
               <thead class="bg-gradient-to-r from-[#08056d] to-blue-700 text-white">
                 <tr>
                   <th scope="col" class="w-14 px-2 py-1.5 text-center font-semibold">Rank</th>
-                  <th scope="col" class="w-20 px-2 py-1.5 font-semibold">Name</th>
-                  <th scope="col" class="px-2 py-1.5"></th>
+                  <th scope="col" class="w-20 px-2 py-1.5 font-semibold">Judge</th>
+                  <th scope="col" class="px-2 py-1.5 font-semibold">Progress</th>
+                  <th scope="col" class="px-2 py-1.5 print:hidden"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="isLoading">
-                  <td colspan="3" class="px-5 py-8 text-center text-base font-medium text-slate-500">
+                  <td colspan="4" class="px-5 py-8 text-center text-base font-medium text-slate-500">
                     <span class="inline-flex items-center gap-3" role="status">
                       <span class="h-5 w-5 animate-spin rounded-full border-2 border-blue-800 border-t-transparent"></span>
                       Loading judge progress...
@@ -351,7 +462,7 @@ onBeforeUnmount(() => {
                   </td>
                 </tr>
                 <tr v-else-if="votingProgress.length === 0">
-                  <td colspan="3" class="px-5 py-8 text-center text-base text-slate-500">No judge voting progress available.</td>
+                  <td colspan="4" class="px-5 py-8 text-center text-base text-slate-500">No judge voting progress available.</td>
                 </tr>
                 <tr v-for="(judge, index) in votingProgress" v-else :key="judge.judgeId">
                   <td class="px-2 py-2 text-center font-bold tabular-nums text-blue-950">{{ index + 1 }}</td>
@@ -376,6 +487,27 @@ onBeforeUnmount(() => {
                       </span>
                     </div>
                   </td>
+                  <td class="px-2 py-2 text-right print:hidden">
+                    <div class="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-sm border border-blue-900 px-2.5 py-1.5 text-xs font-bold text-blue-950 transition-colors hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+                        @click="printJudgeScoresheet(judge)"
+                      >
+                        <Printer class="h-3.5 w-3.5" aria-hidden="true" />
+                        FULL SHEET
+                      </button>
+                      <button
+                        type="button"
+                        class="inline-flex items-center gap-1 rounded-sm border border-blue-900 px-2.5 py-1.5 text-xs font-bold text-blue-950 transition-colors hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 disabled:cursor-wait disabled:opacity-60"
+                        :disabled="isPreparingCategorySheet"
+                        @click="prepareCategoryScoresheet(judge)"
+                      >
+                        <Printer class="h-3.5 w-3.5" aria-hidden="true" />
+                        BY CATEGORY
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -387,6 +519,172 @@ onBeforeUnmount(() => {
         </div>
       </main>
     </div>
+
+    <div v-if="isCategoryPickerOpen" class="category-picker-backdrop print:hidden" @click.self="closeCategoryPicker">
+      <section class="category-picker" role="dialog" aria-modal="true" aria-labelledby="category-picker-title">
+        <h2 id="category-picker-title" class="text-lg font-bold text-blue-950">Print judge scores by category</h2>
+        <p class="mt-1 text-sm text-slate-600">{{ paperJudgeReport?.judgeName }}</p>
+        <label for="judge-print-category" class="mt-5 block text-sm font-semibold text-slate-800">Category</label>
+        <select id="judge-print-category" v-model="selectedCategoryName" class="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-700/30">
+          <option v-for="category in judgeScoreCategories" :key="category.categoryName" :value="category.categoryName">
+            {{ category.categoryName }}
+          </option>
+        </select>
+        <div class="mt-6 flex justify-end gap-2">
+          <button type="button" class="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="closeCategoryPicker">Cancel</button>
+          <button type="button" class="inline-flex items-center gap-2 rounded bg-blue-950 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800" @click="printSelectedCategoryScoresheet">
+            <Printer class="h-4 w-4" aria-hidden="true" />
+            Print category
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <section v-if="printMode" class="paper-report" :class="{ 'paper-scoresheet': printMode === 'scoresheet', 'paper-category-sheet': printMode === 'category-scoresheet' }" aria-hidden="true">
+      <template v-if="printMode === 'ranking'">
+        <header class="paper-header">
+          <img :src="mrMsLogo" alt="Mr. and Ms. CCS" />
+          <div class="paper-header-copy">
+            <p>Republic of the Philippines</p>
+            <p>Jose Rizal Memorial State University</p>
+            <p>College of Computing Studies</p>
+          </div>
+          <img :src="ccsLogo" alt="College of Computing Studies" />
+        </header>
+        <h1 class="paper-title">Mr. &amp; Ms. CCS 2026 Final Ranking</h1>
+        <h2 class="paper-subtitle">{{ selectedGroupName }}</h2>
+        <table class="paper-table ranking-paper-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Name &amp; Label</th>
+              <th>Group</th>
+              <th>Weigh</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="ranking in finalRankings" :key="ranking.contestantId">
+              <td class="paper-center">{{ ranking.rank }}</td>
+              <td>
+                <strong>{{ ranking.label }}</strong>
+                <strong class="paper-name">{{ ranking.name }}</strong>
+              </td>
+              <td>{{ ranking.group }}</td>
+              <td class="paper-center"><strong>{{ Number(ranking.final_candidate_score || 0).toFixed(1) }}%</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="paper-declaration">We hereby declare the computed score above is accurate and is final.</p>
+        <div class="paper-signatures">
+          <div v-for="(judge, index) in votingProgress" :key="judge.judgeId">
+            <span></span>
+            <strong>{{ judge.judgeName }}</strong>
+            <em>Judge {{ index + 1 }}</em>
+          </div>
+        </div>
+      </template>
+
+      <template v-else-if="printMode === 'scoresheet' && paperJudgeReport">
+        <header class="paper-header paper-header-compact">
+          <img :src="mrMsLogo" alt="Mr. and Ms. CCS" />
+          <div class="paper-header-copy">
+            <p>Republic of the Philippines</p>
+            <p>Jose Rizal Memorial State University</p>
+            <p>College of Computing Studies</p>
+          </div>
+          <img :src="ccsLogo" alt="College of Computing Studies" />
+        </header>
+        <h1 class="paper-title paper-title-compact">{{ paperJudgeReport.header?.title || 'MR & MS CCS 2026 Judge Scoresheet' }}</h1>
+        <table class="paper-table scoresheet-paper-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Name &amp; Label</th>
+              <th v-for="category in paperJudgeReport.contestants?.[0]?.categoryBreakdown || []" :key="category.categoryName">
+                {{ category.categoryName }}
+              </th>
+              <th>Weigh. Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="contestant in paperJudgeReport.contestants" :key="contestant.nameAndLabel">
+              <td class="paper-center">{{ contestant.rank }}</td>
+              <td><strong>{{ contestant.nameAndLabel }}</strong></td>
+              <td v-for="category in contestant.categoryBreakdown" :key="category.categoryName" class="paper-center">
+                {{ Number(category.score || 0).toFixed(0) }}
+              </td>
+              <td class="paper-center"><strong>{{ Number(contestant.final_candidate_score || 0).toFixed(0) }}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="paper-declaration">I hereby confirm that my inputted score above is accurate and final.</p>
+        <div class="paper-single-signature">
+          <span></span>
+          <strong>{{ paperJudgeReport.judgeName }}</strong>
+          <em>{{ paperJudgeLabel }}</em>
+        </div>
+      </template>
+
+      <template v-else-if="printMode === 'category-scoresheet' && paperJudgeReport">
+        <header class="paper-header paper-category-header">
+          <img :src="mrMsLogo" alt="Mr. and Ms. CCS" />
+          <div class="paper-header-copy">
+            <p>Republic of the Philippines</p>
+            <p>Jose Rizal Memorial State University</p>
+            <p>College of Computing Studies</p>
+          </div>
+          <img :src="ccsLogo" alt="College of Computing Studies" />
+        </header>
+        <h1 class="paper-title">MR &amp; MS CCS 2026 Judge Scoresheet</h1>
+        <h2 class="paper-subtitle">{{ selectedCategoryName }}</h2>
+        <p class="category-sheet-judge">Judge: {{ paperJudgeReport.judgeName }}</p>
+        <table class="paper-table category-paper-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Name &amp; Label</th>
+              <th>{{ selectedCategoryName }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="contestant in categorySheetRows" :key="contestant.nameAndLabel">
+              <td class="paper-center">{{ contestant.rank }}</td>
+              <td><strong>{{ contestant.nameAndLabel }}</strong></td>
+              <td class="paper-center"><strong>{{ Number(contestant.categoryScore || 0).toFixed(0) }}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="paper-declaration">I hereby confirm that my inputted score above is accurate and final.</p>
+        <div class="paper-single-signature">
+          <span></span>
+          <strong>{{ paperJudgeReport.judgeName }}</strong>
+          <em>{{ paperJudgeLabel }}</em>
+        </div>
+      </template>
+
+      <template v-else-if="printMode === 'progress'">
+        <header class="paper-header">
+          <img :src="mrMsLogo" alt="Mr. and Ms. CCS" />
+          <div class="paper-header-copy">
+            <p>Republic of the Philippines</p>
+            <p>Jose Rizal Memorial State University</p>
+            <p>College of Computing Studies</p>
+          </div>
+          <img :src="ccsLogo" alt="College of Computing Studies" />
+        </header>
+        <h1 class="paper-title">Judge Voting Progress</h1>
+        <table class="paper-table">
+          <thead><tr><th>Rank</th><th>Judge</th><th>Progress</th></tr></thead>
+          <tbody>
+            <tr v-for="(judge, index) in votingProgress" :key="judge.judgeId">
+              <td class="paper-center">{{ index + 1 }}</td>
+              <td>{{ judge.judgeName }}</td>
+              <td class="paper-center">{{ Number(judge.progressPercentage || 0).toFixed(1) }}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
+    </section>
   </div>
 </template>
 
@@ -424,6 +722,29 @@ onBeforeUnmount(() => {
 .report-content {
   min-height: 100%;
   color: #0f172a;
+}
+
+.paper-report {
+  display: none;
+}
+
+.category-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(15 23 42 / 55%);
+}
+
+.category-picker {
+  width: min(100%, 420px);
+  padding: 24px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 20px 50px rgb(15 23 42 / 24%);
 }
 
 .mobile-hamburger {
@@ -499,6 +820,238 @@ onBeforeUnmount(() => {
   .admin-dashboard :deep(.sidebar-link.active) {
     min-height: 50px;
   }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@page ranking {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@page scoresheet {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@page categorysheet {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  :global(html),
+  :global(body) {
+    width: 100%;
+    min-height: 100%;
+    margin: 0 !important;
+    background: #fff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  :global(body *) {
+    visibility: hidden !important;
+  }
+
+  .paper-report,
+  .paper-report * {
+    visibility: visible !important;
+  }
+
+  .paper-report {
+    position: fixed;
+    inset: 8mm;
+    display: block !important;
+    width: auto;
+    min-height: 0;
+    padding: 8mm 7mm;
+    border: 1px solid #1688e8;
+    background: #fff;
+    color: #111;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    page: ranking;
+  }
+
+  .paper-report.paper-scoresheet {
+    page: scoresheet;
+  }
+
+  .paper-report.paper-category-sheet {
+    page: categorysheet;
+  }
+
+  .paper-header {
+    display: grid;
+    grid-template-columns: 24mm minmax(0, 1fr) 24mm;
+    align-items: center;
+    gap: 3mm;
+    margin: 0 0 7mm;
+    padding-bottom: 3mm;
+    border-bottom: 1px solid #777;
+    text-align: center;
+    font-size: 9pt;
+    line-height: 1.25;
+  }
+
+  .paper-header p {
+    margin: 0;
+  }
+
+  .paper-header img {
+    display: block;
+    width: 24mm;
+    height: 24mm;
+    object-fit: contain;
+  }
+
+  .paper-category-header img {
+    width: 24mm;
+    height: 24mm;
+  }
+
+  .paper-header-copy {
+    min-width: 0;
+    text-align: center;
+  }
+
+  .paper-header-compact {
+    grid-template-columns: 20mm minmax(0, 1fr) 20mm;
+    margin-bottom: 5mm;
+    padding-bottom: 2mm;
+    font-size: 8pt;
+  }
+
+  .paper-header-compact img {
+    width: 20mm;
+    height: 20mm;
+  }
+
+  .paper-title {
+    margin: 0 0 4mm;
+    text-align: center;
+    font-size: 17pt;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .paper-title-compact {
+    margin-bottom: 5mm;
+    font-size: 14pt;
+  }
+
+  .paper-subtitle {
+    margin: 0 0 4mm;
+    text-align: center;
+    font-size: 10pt;
+    font-weight: 700;
+  }
+
+  .paper-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 9pt;
+  }
+
+  .paper-table th,
+  .paper-table td {
+    border: 1px solid #222;
+    padding: 2.1mm 2.4mm;
+    vertical-align: top;
+  }
+
+  .paper-table th {
+    text-align: left;
+    font-weight: 700;
+  }
+
+  .ranking-paper-table th:nth-child(1) { width: 14%; }
+  .ranking-paper-table th:nth-child(2) { width: 36%; }
+  .ranking-paper-table th:nth-child(3) { width: 35%; }
+  .ranking-paper-table th:nth-child(4) { width: 15%; }
+
+  .paper-center {
+    text-align: center !important;
+    vertical-align: middle !important;
+  }
+
+  .paper-name {
+    display: block;
+  }
+
+  .paper-declaration {
+    margin: 7mm 0 12mm;
+    font-size: 8pt;
+    font-style: italic;
+  }
+
+  .paper-signatures {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4mm;
+    margin: 0 2mm;
+  }
+
+  .paper-signatures div,
+  .paper-single-signature {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2mm;
+    font-size: 8pt;
+  }
+
+  .paper-signatures span,
+  .paper-single-signature span {
+    width: 100%;
+    border-top: 1px solid #555;
+  }
+
+  .paper-signatures em,
+  .paper-single-signature em {
+    font-style: italic;
+  }
+
+  .paper-signatures strong,
+  .paper-single-signature strong {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    text-align: center;
+    font-size: 7.5pt;
+  }
+
+  .paper-single-signature {
+    width: 35mm;
+    margin: 10mm auto 0;
+  }
+
+  .category-sheet-judge {
+    margin: 0 0 4mm;
+    text-align: center;
+    font-size: 9pt;
+  }
+
+  .category-paper-table th:first-child { width: 14%; }
+  .category-paper-table th:nth-child(2) { width: 58%; }
+  .category-paper-table th:nth-child(3) { width: 28%; }
+
+  .scoresheet-paper-table {
+    font-size: 7pt;
+  }
+
+  .scoresheet-paper-table th,
+  .scoresheet-paper-table td {
+    padding: 1.6mm 1.8mm;
+  }
+
+  .scoresheet-paper-table th:first-child { width: 7%; }
+  .scoresheet-paper-table th:nth-child(2) { width: 19%; }
+  .scoresheet-paper-table th:last-child { width: 12%; }
 }
 
 @media (max-width: 520px) {
