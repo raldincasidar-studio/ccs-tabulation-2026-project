@@ -17,7 +17,7 @@ import LiveControlsView from '@/views/LiveControlsView.vue';
 const routes = [
   {
     path: '/',
-    redirect: '/reports',
+    redirect: '/login',
   },
   {
     path: '/reports',
@@ -154,32 +154,27 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to) => {
   const loggedIn = isAuthenticated();
   const user = getCurrentUser();
 
-  // 1. If already logged in, redirect away from login to their portal
   if (to.meta.guestOnly && loggedIn) {
-    if (user?.userType === 'Admin') return next({ name: 'admin' });
-    if (user?.userType === 'Judge') return next({ name: 'judge' });
+    if (user?.userType === 'Admin') return { name: 'admin' };
+    if (user?.userType === 'Judge') return { name: 'judge' };
   }
 
-  // 2. Unauthenticated users cannot access protected pages
   if (to.meta.requiresAuth && !loggedIn) {
-    return next({
+    return {
       name: 'login',
       query: { redirect: to.fullPath },
-    });
+    };
   }
 
-  // 3. Role check: Admin cannot enter /judge, and Judge cannot enter /admin
   if (to.meta.role && user?.userType !== to.meta.role) {
-    if (user?.userType === 'Admin') return next({ name: 'admin' });
-    if (user?.userType === 'Judge') return next({ name: 'judge' });
-    return next({ name: 'login' });
+    if (user?.userType === 'Admin') return { name: 'admin' };
+    if (user?.userType === 'Judge') return { name: 'judge' };
+    return { name: 'login' };
   }
-
-  next();
 });
 
 export default router;
