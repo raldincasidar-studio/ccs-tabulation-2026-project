@@ -187,6 +187,7 @@ Fetches global event configuration, mode, quick stats, and current live status.
       "totalContestants": 8
     },
     "liveStatus": {
+      "isStandby": false,
       "categoryActive": {
         "_id": "65f8a123b0a9c12345678910",
         "name": "Playsuit"
@@ -269,6 +270,7 @@ Updates global event title and description.
 #### 2.3 `PATCH /api/v1/configuration/live-status`
 
 Updates current active category and contestant for live scoring/projection.
+It can also enable or disable standby mode without changing the active category or contestant.
 
 * **Request Body:**
 ```json
@@ -279,6 +281,13 @@ Updates current active category and contestant for live scoring/projection.
 
 ```
 
+To update standby mode:
+```json
+{
+  "isStandby": true
+}
+```
+
 
 * **Response (200 OK):**
 ```json
@@ -287,7 +296,8 @@ Updates current active category and contestant for live scoring/projection.
   "message": "Live status updated successfully",
   "data": {
     "categoryActive": "65f8a123b0a9c12345678910",
-    "contestantActive": "65f8a123b0a9c12345678920"
+    "contestantActive": "65f8a123b0a9c12345678920",
+    "isStandby": false
   }
 }
 
