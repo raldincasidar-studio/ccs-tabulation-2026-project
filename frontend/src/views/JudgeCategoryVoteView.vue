@@ -460,6 +460,7 @@ onMounted(() => {
                       :max="criterion.max"
                       v-model.number="candidate.scores[criterion.id]"
                       @input="onScoreInput(candidate, criterion.id, criterion.max)"
+                      @wheel="$event.target.blur()"
                       :placeholder="formatScore(candidate.scores[criterion.id]) || '00'"
                       class="w-11 h-9 sm:w-16 sm:h-10 text-center font-bold text-sm sm:text-lg bg-[#00144D]/80 border border-blue-400/60 rounded-md text-white placeholder-white focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />

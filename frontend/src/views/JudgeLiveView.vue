@@ -309,6 +309,7 @@ onUnmounted(() => {
               :max="criteriaList[0].max"
               v-model.number="contestantScores[criteriaList[0].id]"
               @input="onScoreInput(criteriaList[0].id, criteriaList[0].max)"
+              @wheel="$event.target.blur()"
               placeholder="___"
               class="w-8 sm:w-10 text-center font-bold text-xs sm:text-base bg-transparent border-b border-cyan-400 text-white focus:outline-none focus:border-yellow-400 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
@@ -334,6 +335,7 @@ onUnmounted(() => {
               :max="criteriaList[1].max"
               v-model.number="contestantScores[criteriaList[1].id]"
               @input="onScoreInput(criteriaList[1].id, criteriaList[1].max)"
+              @wheel="$event.target.blur()"
               placeholder="___"
               class="w-8 sm:w-10 text-center font-bold text-xs sm:text-base bg-transparent border-b border-cyan-400 text-white focus:outline-none focus:border-yellow-400 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
@@ -359,6 +361,7 @@ onUnmounted(() => {
               :max="criteriaList[2].max"
               v-model.number="contestantScores[criteriaList[2].id]"
               @input="onScoreInput(criteriaList[2].id, criteriaList[2].max)"
+              @wheel="$event.target.blur()"
               placeholder="___"
               class="w-8 sm:w-10 text-center font-bold text-xs sm:text-base bg-transparent border-b border-cyan-400 text-white focus:outline-none focus:border-yellow-400 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />

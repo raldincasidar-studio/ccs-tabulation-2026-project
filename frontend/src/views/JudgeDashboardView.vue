@@ -72,13 +72,17 @@
       </div>
 
       <!-- Categories 3-3-1 Grid -->
-      <div v-else class="w-full max-w-[820px] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-1 gap-y-14 justify-items-center mt-6">
+      <div v-else class="w-full max-w-[820px] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-x-1 gap-y-14 justify-items-center mt-6">
         <div 
           v-for="(cat, index) in categories" 
           :key="cat._id || cat.id || index"
           @click="selectCategory(cat)"
           class="relative w-[246px] h-[184px] cursor-pointer transition-transform duration-200 hover:scale-[1.03] flex flex-col justify-end items-center group"
-          :class="{ 'md:col-start-2': index === 6 }"
+          :class="{
+            'md:col-span-2': true,
+            'md:col-start-2': index === 3,
+            'md:col-start-4': index === 4
+          }"
         >
           <!-- Card Background Box -->
           <div 
@@ -148,14 +152,35 @@ const isLiveMode = ref(true)
 const isLoading = ref(true)
 const judgeName = ref('JUDGE')
 
+const getCategoryOrder = (category) => {
+  const name = (category.name || category.title || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+  if (name.includes('PRODUCTION')) return 0
+  if (name.includes('PLAYSUIT')) return 1
+  if (name.includes('UNIFORM')) return 2
+  if (name.includes('FORMAL') || name.includes('EVENINGGOWN')) return 3
+  if (name.includes('QA')) return 4
+  return 5
+}
+
+const sortCategories = (categoryList) => categoryList
+  .map((category, index) => ({ category, index }))
+  .sort((a, b) => getCategoryOrder(a.category) - getCategoryOrder(b.category) || a.index - b.index)
+  .map(({ category }) => category)
+
+const isHiddenCategory = (category) => {
+  const name = (category.name || category.title || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const isQaCategory = name.startsWith('QA') || name.startsWith('QANDA')
+
+  return name.includes('ADVOCACY') || (isQaCategory && !name.includes('FINAL'))
+}
+
 // Initialize categories with logo
 const categories = ref([
+  { id: 'prod-no', name: 'PRODUCTION NO', image: mrMsLogo, isCurrentlyLive: false },
   { id: 'playsuit', name: 'PLAYSUIT', image: mrMsLogo, isCurrentlyLive: false },
   { id: 'uniform-1', name: 'UNIFORM', image: mrMsLogo, isCurrentlyLive: false },
   { id: 'uniform-2', name: 'UNIFORM', image: mrMsLogo, isCurrentlyLive: false },
-  { id: 'prod-no', name: 'PRODUCTION NO', image: mrMsLogo, isCurrentlyLive: false },
-  { id: 'advocacy', name: 'ADVOCACY', image: mrMsLogo, isCurrentlyLive: false },
-  { id: 'q-and-a', name: 'Q AND A', image: mrMsLogo, isCurrentlyLive: false },
   { id: 'qa-final', name: 'Q & A FINAL', image: mrMsLogo, isCurrentlyLive: false }
 ])
 
@@ -195,12 +220,12 @@ const loadDashboardData = async () => {
     const fetchedCategories = Array.isArray(catData) ? catData : (catData?.categories || [])
 
     if (fetchedCategories.length > 0) {
-      categories.value = fetchedCategories.map((item, idx) => ({
+      categories.value = sortCategories(fetchedCategories.map((item, idx) => ({
         ...item,
         name: (item.name || item.title || `Category ${idx + 1}`).toUpperCase(),
         image: (item.image && !item.image.includes('example.com')) ? item.image : mrMsLogo,
         isCurrentlyLive: false
-      }))
+      })).filter(category => !isHiddenCategory(category)))
     }
 
     const sheetResponse = await judgeService.getLiveSheet()
