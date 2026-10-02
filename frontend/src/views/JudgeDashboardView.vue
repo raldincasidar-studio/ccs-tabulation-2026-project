@@ -77,12 +77,21 @@
           v-for="(cat, index) in categories" 
           :key="cat._id || cat.id || index"
           @click="selectCategory(cat)"
-          class="relative w-[246px] h-[184px] cursor-pointer transition-transform duration-200 hover:scale-[1.03] flex flex-col justify-end items-center group"
-          :class="{
-            'md:col-span-2': true,
-            'md:col-start-2': index === 3,
-            'md:col-start-4': index === 4
-          }"
+          @keydown.enter.prevent="selectCategory(cat)"
+          @keydown.space.prevent="selectCategory(cat)"
+          role="button"
+          :aria-disabled="!cat.isCurrentlyLive"
+          :aria-label="`${cat.name}${cat.isCurrentlyLive ? ', active category' : ', unavailable until active'}`"
+          :tabindex="cat.isCurrentlyLive ? 0 : -1"
+          class="relative w-[246px] h-[184px] transition-transform duration-200 flex flex-col justify-end items-center group"
+          :class="[
+            {
+              'md:col-span-2': true,
+              'md:col-start-2': index === 3,
+              'md:col-start-4': index === 4
+            },
+            cat.isCurrentlyLive ? 'cursor-pointer hover:scale-[1.03]' : 'cursor-not-allowed opacity-50 grayscale'
+          ]"
         >
           <!-- Card Background Box -->
           <div 
@@ -238,7 +247,7 @@ const loadDashboardData = async () => {
     const sheetResponse = await judgeService.getLiveSheet()
     const liveData = sheetResponse?.data || sheetResponse
 
-    if (liveData && liveData.contestant) {
+    if (liveData) {
       const activeContestant = liveData.contestant
       const activeCategory = Array.isArray(liveData.category) ? liveData.category[0] : liveData.category
 
@@ -251,7 +260,7 @@ const loadDashboardData = async () => {
 
         return {
           ...cat,
-          image: isMatch && activeContestant.image && !activeContestant.image.includes('example.com')
+          image: isMatch && activeContestant?.image && !activeContestant.image.includes('example.com')
             ? activeContestant.image 
             : (cat.image || mrMsLogo),
           isCurrentlyLive: !!isMatch
@@ -276,6 +285,8 @@ const toggleLiveMode = () => {
 }
 
 const selectCategory = (category) => {
+  if (!category.isCurrentlyLive) return
+
   const catName = category.name || category.title || 'PLAYSUIT'
   const categoryIdentifier = category.id || category._id || catName.toLowerCase().replace(/\s+/g, '-')
 

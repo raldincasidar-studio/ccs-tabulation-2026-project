@@ -107,24 +107,7 @@ async function initializeScoresheet() {
   try {
     const routeCategoryParam = route.params.categoryId || route.query.categoryId || route.query.category
 
-    // 1. Fetch Categories & Rubrics (GET /api/v1/categories)
-    let categories = []
-    try {
-      const catRes = await judgeService.getCategories()
-      categories = catRes?.data || catRes || []
-    } catch (e) {
-      console.warn('Could not fetch categories list:', e)
-    }
-
-    let matchedCat = null
-    if (categories.length > 0 && routeCategoryParam) {
-      matchedCat = categories.find(
-        c => c._id === routeCategoryParam || 
-             c.name?.toLowerCase() === String(routeCategoryParam).toLowerCase()
-      )
-    }
-
-    // 2. Fetch Live Sheet (GET /api/v1/scores/live-sheet)
+    // Only the category in the live sheet is eligible for scoring.
     let liveSheetData = null
     try {
       const liveRes = await judgeService.getLiveSheet()
@@ -133,34 +116,42 @@ async function initializeScoresheet() {
       console.warn('Could not fetch live sheet:', e)
     }
 
-    if (!matchedCat && liveSheetData?.category) {
-      matchedCat = Array.isArray(liveSheetData.category) ? liveSheetData.category[0] : liveSheetData.category
+    const activeCategory = Array.isArray(liveSheetData?.category)
+      ? liveSheetData.category[0]
+      : liveSheetData?.category
+    const activeCategoryId = activeCategory?._id || activeCategory?.id
+
+    if (!activeCategoryId || !activeCategory.name || !Array.isArray(activeCategory.rubrics) || activeCategory.rubrics.length === 0) {
+      criteriaList.value = []
+      candidates.value = []
+      await router.replace({ name: 'judge' })
+      return
     }
 
-    if (matchedCat) {
-      selectedCategory.value = {
-        _id: matchedCat._id,
-        name: matchedCat.name
-      }
+    const normalizeCategory = value => String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+    const requestedCategoryMatches = [activeCategoryId, activeCategory.name]
+      .some(value => normalizeCategory(value) === normalizeCategory(routeCategoryParam))
 
-      if (Array.isArray(matchedCat.rubrics) && matchedCat.rubrics.length > 0) {
-        criteriaList.value = matchedCat.rubrics.map(r => ({
-          id: r._id,
-          label: r.name,
-          max: r.maxPoints || r.maxScore || 40
-        }))
-      }
+    if (!requestedCategoryMatches) {
+      await router.replace({
+        name: 'JudgeCategoryVote',
+        params: { categoryId: activeCategoryId },
+        query: { category: activeCategory.name }
+      })
     }
 
-    // Fallback rubrics if none returned
-    if (criteriaList.value.length === 0) {
-      criteriaList.value = [
-        { id: '65f8a123b0a9c12345678918', label: 'Adherence & Neatness', max: 50 },
-        { id: '65f8a123b0a9c12345678919', label: 'Bearing & Deportment', max: 50 }
-      ]
+    selectedCategory.value = {
+      _id: activeCategoryId,
+      name: activeCategory.name
     }
 
-    // 3. Map Live Sheet Scores (for active contestant)
+    criteriaList.value = activeCategory.rubrics.map(r => ({
+      id: r._id || r.id,
+      label: r.name,
+      max: r.maxPoints || r.maxScore || 40
+    }))
+
+    // Map live-sheet scores for the active contestant.
     const liveScoresMap = {}
     if (liveSheetData?.existingScores && Array.isArray(liveSheetData.existingScores)) {
       liveSheetData.existingScores.forEach(item => {

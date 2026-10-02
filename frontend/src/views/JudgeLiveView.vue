@@ -16,6 +16,7 @@ const isLoading = ref(true)
 let pollingTimer = null
 
 const liveCategory = ref({ _id: '', name: 'PLAYSUIT' })
+const hasActiveLiveSheet = ref(false)
 const allContestants = ref([])
 const activeIndex = ref(0)
 const criteriaList = ref([])
@@ -73,34 +74,43 @@ async function fetchLiveStatus() {
 
     const res = await judgeService.getLiveSheet()
     const liveData = res?.data?.data || res?.data || res
+    const activeCategory = Array.isArray(liveData?.category)
+      ? liveData.category[0]
+      : liveData?.category
 
-    if (liveData?.category) {
-      const cat = Array.isArray(liveData.category) ? liveData.category[0] : liveData.category
-      if (cat) {
-        liveCategory.value = {
-          _id: cat._id || cat.id,
-          name: (cat.name || 'PLAYSUIT').toUpperCase()
-        }
-
-        if (Array.isArray(cat.rubrics) && cat.rubrics.length > 0) {
-          criteriaList.value = cat.rubrics.map(r => ({
-            id: r._id,
-            label: r.name,
-            max: r.maxPoints || r.maxScore || 40
-          }))
-        }
-      }
+    if (!activeCategory || !liveData?.contestant || !Array.isArray(activeCategory.rubrics) || activeCategory.rubrics.length === 0) {
+      hasActiveLiveSheet.value = false
+      liveCategory.value = { _id: '', name: '' }
+      criteriaList.value = []
+      contestantScores.value = {}
+      allContestants.value = []
+      activeIndex.value = 0
+      return
     }
 
-    if (criteriaList.value.length === 0) {
-      criteriaList.value = [
-        { id: '65f8a123b0a9c12345678911', label: 'Fitness & Form', max: 40 },
-        { id: '65f8a123b0a9c12345678912', label: 'Stage Presence', max: 40 },
-        { id: '65f8a123b0a9c12345678913', label: 'Poise & Bearing', max: 20 },
-      ]
+    hasActiveLiveSheet.value = true
+
+    liveCategory.value = {
+      _id: activeCategory._id || activeCategory.id,
+      name: activeCategory.name.toUpperCase()
+    }
+    criteriaList.value = activeCategory.rubrics.map(r => ({
+      id: r._id || r.id,
+      label: r.name,
+      max: r.maxPoints || r.maxScore || 40
+    }))
+
+    if (criteriaList.value.some(criterion => !criterion.id)) {
+      hasActiveLiveSheet.value = false
+      liveCategory.value = { _id: '', name: '' }
+      criteriaList.value = []
+      contestantScores.value = {}
+      allContestants.value = []
+      activeIndex.value = 0
+      return
     }
 
-    if (liveData?.contestant) {
+    if (liveData.contestant) {
       const liveC = liveData.contestant
 
       if (allContestants.value.length === 0) {
@@ -156,6 +166,12 @@ async function fetchLiveStatus() {
       contestantScores.value = scoresObj
     }
   } catch (err) {
+    hasActiveLiveSheet.value = false
+    liveCategory.value = { _id: '', name: '' }
+    criteriaList.value = []
+    contestantScores.value = {}
+    allContestants.value = []
+    activeIndex.value = 0
     console.warn('Polling error:', err)
   } finally {
     isLoading.value = false
@@ -163,6 +179,8 @@ async function fetchLiveStatus() {
 }
 
 async function onScoreInput(critId, max) {
+  if (!hasActiveLiveSheet.value || !activeContestant.value) return
+
   let val = contestantScores.value[critId]
   if (val === '' || val === null || val === undefined) return
 
@@ -205,6 +223,8 @@ function handleImageError(e, fallbackIdx = 0) {
 }
 
 function toggleLiveMode() {
+  if (!hasActiveLiveSheet.value) return
+
   isLiveMode.value = false
   const categoryIdentifier = liveCategory.value._id || route.query.category || 'playsuit'
   router.push({
@@ -287,6 +307,16 @@ onUnmounted(() => {
 
     <!-- ── STAGE VIEWPORT ── -->
     <main class="relative z-10 flex-1 w-full h-full flex flex-col items-center justify-end overflow-hidden pb-4 md:pb-0">
+      <div
+        v-if="!isLoading && !hasActiveLiveSheet"
+        role="status"
+        class="absolute inset-0 z-50 flex items-center justify-center px-5"
+      >
+        <div class="max-w-md rounded-xl border border-cyan-400/40 bg-[#050b35]/90 px-6 py-5 text-center shadow-[0_0_30px_rgba(14,165,233,0.2)] backdrop-blur-md">
+          <h2 class="font-croparo text-lg font-bold tracking-wider text-cyan-200">NO ACTIVE CATEGORY</h2>
+          <p class="mt-2 text-sm leading-relaxed text-blue-100/80">Scoring is unavailable until an active category, rubrics, and contestant are provided.</p>
+        </div>
+      </div>
 
       <!-- ── LEFT: SCORE SHEET RUBRICS CARDS ── -->
       <div class="absolute left-0 top-[32%] sm:top-[38%] md:top-[42%] -translate-y-1/2 z-40 flex flex-col gap-1.5 sm:gap-2 md:gap-2.5 pointer-events-none">
