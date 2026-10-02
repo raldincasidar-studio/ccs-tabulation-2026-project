@@ -118,6 +118,8 @@ async function handleLogout() {
         class="sidebar-link"
         :class="{ active: item.label === props.activeItem }"
         :aria-current="item.label === props.activeItem ? 'page' : undefined"
+        :aria-label="item.label"
+        :title="props.isSidebarCollapsed ? item.label : undefined"
         @click="handleNavigation(item)"
       >
         <component :is="item.icon" class="sidebar-icon" :size="18" />
@@ -287,7 +289,7 @@ async function handleLogout() {
   padding: 8px 6px 2px;
   color: #fff;
   font-family: "Croparo", sans-serif;
-  font-size: 9px;
+  font-size: 16px;
   line-height: 1.1;
   text-align: center;
   transition: height 0.25s ease, padding 0.25s ease, margin-top 0.25s ease;
@@ -338,9 +340,9 @@ async function handleLogout() {
   align-items: center;
   gap: 6px;
   padding: 0 8px 0 12px;
-  color: #b9c0e1;
+  color: #e0e7ff;
   font-family: "Croparo", sans-serif;
-  font-size: clamp(0.68rem, 0.35vw + 0.54rem, 0.98rem);
+  font-size: 16px;
   font-weight: 400;
   letter-spacing: 0.02em;
   line-height: 1.1;
@@ -370,6 +372,8 @@ async function handleLogout() {
   text-overflow: clip;
 }
 
+.sidebar-link:focus-visible, .sign-out:focus-visible, .sidebar-toggle:focus-visible, .sidebar-close:focus-visible { outline: 3px solid #c8d9ff; outline-offset: -3px; }
+
 .sidebar-link.active {
   min-height: 50px;
   color: #f5f6ff;
@@ -388,7 +392,7 @@ async function handleLogout() {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #ef4444;
+  color: #ff9b9b;
   cursor: pointer;
   justify-content: center;
   text-align: center;

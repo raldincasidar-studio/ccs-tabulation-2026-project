@@ -7,16 +7,9 @@ import { sendError, sendSuccess } from '../utils/response.js';
 
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'PW3D3_N4NG_M4NG4W4T';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '8h';
-
-// Parse JWT_EXPIRES_IN (e.g. '8h') into milliseconds for session expiresAt
-const parseExpiry = (str) => {
-  const match = String(str).match(/^(\d+)([smhd])$/);
-  if (!match) return 8 * 60 * 60 * 1000;
-  const [, val, unit] = match;
-  const units = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
-  return Number(val) * (units[unit] || 3600000);
+const getJwtSecret = () => {
+  if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is not configured');
+  return process.env.JWT_SECRET;
 };
 
 const signToken = (user) =>
@@ -26,8 +19,8 @@ const signToken = (user) =>
       username: user.username,
       userType: user.userType,
     },
-    JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN },
+    getJwtSecret(),
+    { expiresIn: process.env.JWT_EXPIRES_IN || '8h' },
   );
 
 /**
@@ -44,7 +37,7 @@ export const authenticateToken = async (req, res, next) => {
   const token = authHeader.replace('Bearer ', '').trim();
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, getJwtSecret());
 
     // Check if session is still active in DB
     const session = await LoginSession.findOne({ token, isActive: true });
@@ -85,7 +78,7 @@ router.post('/auth/login', async (req, res) => {
     }
 
     const token = signToken(user);
-    const expiresAt = new Date(Date.now() + parseExpiry(JWT_EXPIRES_IN));
+    const expiresAt = new Date(jwt.decode(token).exp * 1000);
 
     // Persist session in DB
     await LoginSession.create({
