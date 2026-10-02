@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { judgeService } from '@/services/judgeService'
 import configService from '@/services/configService'
@@ -19,6 +19,20 @@ const isLiveMode = ref(true)
 const isLoading = ref(true)
 const isStandby = ref(false)
 let pollingTimer = null
+let sponsorTimer = null
+const sponsorIndex = ref(0)
+const sponsorImages = [firstSponsors, secondSponsors, thirdSponsors]
+
+watch(isStandby, (standby) => {
+  if (sponsorTimer) clearInterval(sponsorTimer)
+  sponsorTimer = null
+
+  if (standby) {
+    sponsorTimer = setInterval(() => {
+      sponsorIndex.value = (sponsorIndex.value + 1) % sponsorImages.length
+    }, 5000)
+  }
+})
 
 const liveCategory = ref({ _id: '', name: 'PLAYSUIT' })
 const hasActiveLiveSheet = ref(false)
@@ -259,6 +273,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (pollingTimer) clearInterval(pollingTimer)
+  if (sponsorTimer) clearInterval(sponsorTimer)
 })
 </script>
 
@@ -286,12 +301,12 @@ onUnmounted(() => {
       </router-link>
 
       <!-- Center: Now Showing Header (Absolute Center on Desktop, Normal flow on mobile) -->
-      <div class="absolute left-1/2 -translate-x-1/2 top-4 sm:top-6 md:top-10 lg:top-12 flex flex-col items-center text-center w-full max-w-[200px] sm:max-w-md pointer-events-none z-0">
+      <div class="absolute left-2 top-4 sm:top-6 md:top-10 lg:top-12 flex flex-col items-center text-center w-full max-w-[200px] sm:max-w-md pointer-events-none z-0">
         <span class="text-[10px] sm:text-xs md:text-sm text-gray-300 font-medium tracking-[0.25em] flex items-center gap-1.5 mb-1 sm:mb-1.5 mt-10 sm:mt-0">
           <span class="text-[10px] sm:text-xs">✦</span> {{ isStandby ? 'Standby' : 'Now Showing' }}
         </span>
         <h1 
-          class="font-croparo text-xl sm:text-3xl md:text-5xl lg:text-6xl tracking-widest uppercase text-transparent bg-clip-text"
+          class="font-croparo text-xl sm:text-3xl md:text-5xl lg:text-4xl tracking-widest uppercase text-transparent bg-clip-text"
           style="
             background-image: linear-gradient(90deg, #7D1F59 0%, #00FFFB 100%);
             -webkit-text-stroke: 1px rgba(255, 255, 255, 0.35);
@@ -328,16 +343,17 @@ onUnmounted(() => {
       <section
         v-if="isStandby"
         role="status"
-        class="absolute inset-0 z-50 flex flex-col items-center justify-center gap-8 px-5 py-10 text-center"
+        aria-label="Official sponsors"
+        class="fixed inset-0 z-[100] overflow-hidden bg-[#01010D]"
       >
-        <h2 class="font-croparo text-2xl sm:text-4xl md:text-5xl font-bold tracking-[0.2em] text-cyan-200 drop-shadow-[0_0_18px_rgba(0,255,251,0.65)]">
-          STANDBY MODE
-        </h2>
-        <div class="grid w-full max-w-6xl grid-cols-1 items-center justify-items-center gap-6 sm:grid-cols-3 sm:gap-8">
-          <img :src="firstSponsors" alt="Official sponsors" class="max-h-40 w-full max-w-sm object-contain" />
-          <img :src="secondSponsors" alt="Official sponsors" class="max-h-40 w-full max-w-sm object-contain" />
-          <img :src="thirdSponsors" alt="Official sponsors" class="max-h-40 w-full max-w-sm object-contain" />
-        </div>
+        <Transition name="sponsor-fade">
+          <img
+            :key="sponsorIndex"
+            :src="sponsorImages[sponsorIndex]"
+            :alt="`Official sponsors ${sponsorIndex + 1}`"
+            class="sponsor-slide absolute inset-0 h-full w-full object-contain"
+          />
+        </Transition>
       </section>
 
       <div
@@ -564,6 +580,21 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.sponsor-fade-enter-active,
+.sponsor-fade-leave-active {
+  transition: opacity 900ms ease, transform 900ms ease;
+}
+
+.sponsor-fade-enter-from {
+  opacity: 0;
+  transform: scale(1.025);
+}
+
+.sponsor-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.99);
+}
+
 .contestant-fade-enter-active,
 .contestant-fade-leave-active {
   transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
