@@ -134,9 +134,6 @@ async function shutdown() {
   process.exit(0);
 }
 
-process.once('SIGTERM', shutdown);
-process.once('SIGINT', shutdown);
-
 connectWithRetry();
 
 export default app;
