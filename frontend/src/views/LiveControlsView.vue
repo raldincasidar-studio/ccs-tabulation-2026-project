@@ -28,6 +28,19 @@ const loading = ref(true);
 const saving = ref(false);
 const message = ref(null);
 
+const fetchContestantsForCategory = async (categoryId) => {
+  const linkedGroups = groups.value.filter(group =>
+    group.categoriesIncluded?.includes(categoryId)
+  );
+  const contestantsByGroup = await Promise.all(
+    linkedGroups.map(group =>
+      judgeService.getContestants({ groupId: group._id })
+    )
+  );
+
+  return contestantsByGroup.flat();
+};
+
 onMounted(async () => {
   checkMobile();
   window.addEventListener('resize', checkMobile);
@@ -51,15 +64,10 @@ onMounted(async () => {
     if (liveStatus?.categoryActive?._id) {
       selectedCategory.value = liveStatus.categoryActive._id;
       
-      // Pre-fetch contestants for the initially selected category
-      const linkedGroup = groups.value.find(g => g.categoriesIncluded?.includes(selectedCategory.value));
-      if (linkedGroup) {
-        const contData = await judgeService.getContestants({ groupId: linkedGroup._id });
-        contestants.value = contData || [];
-        
-        if (liveStatus?.contestantActive?._id) {
-          selectedContestant.value = liveStatus.contestantActive._id;
-        }
+      contestants.value = await fetchContestantsForCategory(selectedCategory.value);
+
+      if (liveStatus?.contestantActive?._id) {
+        selectedContestant.value = liveStatus.contestantActive._id;
       }
     }
   } catch (error) {
@@ -81,15 +89,10 @@ const handleCategoryChange = async () => {
 
   if (!selectedCategory.value) return;
 
-  const linkedGroup = groups.value.find(g => g.categoriesIncluded?.includes(selectedCategory.value));
-  
-  if (linkedGroup) {
-    try {
-      const contData = await judgeService.getContestants({ groupId: linkedGroup._id });
-      contestants.value = contData || [];
-    } catch (error) {
-      console.error("Failed to fetch contestants for group:", error);
-    }
+  try {
+    contestants.value = await fetchContestantsForCategory(selectedCategory.value);
+  } catch (error) {
+    console.error("Failed to fetch contestants for category:", error);
   }
 };
 
