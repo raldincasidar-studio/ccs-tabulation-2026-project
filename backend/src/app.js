@@ -1,7 +1,9 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import mongoose from 'mongoose';
+import { connectDB } from './config/db.js';
 import { sendError, sendSuccess } from './utils/response.js';
 
 import authRouter from './routes/authRoutes.js';
@@ -15,6 +17,12 @@ import scoreRouter from './routes/scoreRoutes.js';
 import reportRouter from './routes/reportRoutes.js';
 import dashboardRouter from './routes/dashboardRoutes.js';
 
+// Environment Check
+if (!process.env.JWT_SECRET) {
+  console.error('ERROR: JWT_SECRET must be set in backend/.env.');
+  process.exit(1);
+}
+
 const app = express();
 
 // Middleware
@@ -24,7 +32,7 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
-// Readiness is public and never reveals a URI, hostname, password or token.
+// Readiness Check
 app.get(['/health', '/api/v1/health', '/api/v1-mock/health'], (req, res) => {
   res.set('Cache-Control', 'no-store');
   if (mongoose.connection.readyState !== 1) {
@@ -34,8 +42,7 @@ app.get(['/health', '/api/v1/health', '/api/v1-mock/health'], (req, res) => {
   return sendSuccess(res, { status: 'ok', database: 'connected' }, 'API and database are ready');
 });
 
-// Avoid buffering requests and displaying misleading zero/empty results
-// when the database is disconnected. Startup retries happen in server.js.
+// Guard Middleware for Database Readiness
 app.use('/api', (req, res, next) => {
   if (mongoose.connection.readyState !== 1) {
     res.set('Retry-After', '15');
@@ -44,9 +51,7 @@ app.use('/api', (req, res, next) => {
   return next();
 });
 
-// Route Modules — both /api/v1 and /api/v1-mock point to the same
-// database-backed handlers. The mock prefix is kept for frontend
-// compatibility during transition.
+// Route Modules
 app.use('/api/v1', authRouter);
 app.use('/api/v1-mock', authRouter);
 app.use('/api/v1', configurationRouter);
@@ -98,5 +103,38 @@ app.use((err, req, res, next) => {
   console.error(err);
   return sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Something went wrong', []);
 });
+
+// Server Initialization & Database Connection Handling
+const PORT = process.env.PORT || 5000;
+const RETRY_DELAY_MS = 15000;
+let retryTimer;
+let isClosing = false;
+
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  connectWithRetry();
+});
+
+async function connectWithRetry() {
+  if (isClosing || mongoose.connection.readyState === 1) return;
+  const connected = await connectDB();
+  if (!connected && !isClosing) {
+    console.warn('MongoDB is unavailable. API requests return 503; retrying the connection in 15 seconds.');
+    retryTimer = setTimeout(connectWithRetry, RETRY_DELAY_MS);
+    retryTimer.unref();
+  }
+}
+
+async function shutdown() {
+  if (isClosing) return;
+  isClosing = true;
+  clearTimeout(retryTimer);
+  server.close();
+  await mongoose.disconnect();
+  process.exit(0);
+}
+
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
 
 export default app;
