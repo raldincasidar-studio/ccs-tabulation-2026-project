@@ -20,6 +20,7 @@ if (!process.env.JWT_SECRET) {
 // or database credentials are exposed as a fallback.
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  connectWithRetry();
 });
 
 async function connectWithRetry() {
@@ -32,7 +33,7 @@ async function connectWithRetry() {
   }
 }
 
-connectWithRetry();
+
 
 async function shutdown() {
   if (isClosing) return;
