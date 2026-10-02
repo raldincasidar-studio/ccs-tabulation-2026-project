@@ -1,9 +1,10 @@
 <script setup>
-import { markRaw } from "vue";
+import { markRaw, ref } from "vue";
 import { useRouter } from "vue-router";
 import dashboardImage from "@/assets/img/logo.png.png";
 import oneStarImage from "@/assets/img/one star.png";
 import { logout } from "@/services/authService";
+import ExitConfirmationModal from "@/components/ExitConfirmationModal.vue";
 import {
   BarChart3,
   BriefcaseBusiness,
@@ -41,6 +42,7 @@ const emit = defineEmits([
 ]);
 
 const router = useRouter();
+const isExitConfirmationOpen = ref(false);
 
 // markRaw prevents Vue's reactivity system from wrapping component VNodes
 const navigation = [
@@ -59,7 +61,12 @@ function handleNavigation(item) {
   }
 }
 
-async function handleLogout() {
+function handleLogout() {
+  isExitConfirmationOpen.value = true;
+}
+
+async function confirmLogout() {
+  isExitConfirmationOpen.value = false;
   try {
     await logout();
   } finally {
@@ -146,6 +153,11 @@ async function handleLogout() {
       <span class="constellation-star star-six"></span>
     </div>
   </aside>
+  <ExitConfirmationModal
+    :is-open="isExitConfirmationOpen"
+    @cancel="isExitConfirmationOpen = false"
+    @confirm="confirmLogout"
+  />
 </template>
 
 <style scoped>

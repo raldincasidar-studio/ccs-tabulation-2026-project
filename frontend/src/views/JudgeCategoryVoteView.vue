@@ -285,6 +285,10 @@ function formatScore(val) {
   return isNaN(num) ? '' : num < 10 && num >= 0 ? `0${num}` : `${num}`
 }
 
+function isScoreMissing(val) {
+  return val === '' || val === null || val === undefined
+}
+
 onMounted(() => {
   initializeScoresheet()
 })
@@ -461,6 +465,7 @@ onMounted(() => {
                       v-model.number="candidate.scores[criterion.id]"
                       @input="onScoreInput(candidate, criterion.id, criterion.max)"
                       @wheel="$event.target.blur()"
+                      :style="isScoreMissing(candidate.scores[criterion.id]) ? { borderColor: '#fde047', boxShadow: '0 0 14px rgba(250, 204, 21, 0.8)' } : undefined"
                       :placeholder="formatScore(candidate.scores[criterion.id]) || '00'"
                       class="w-11 h-9 sm:w-16 sm:h-10 text-center font-bold text-sm sm:text-lg bg-[#00144D]/80 border border-blue-400/60 rounded-md text-white placeholder-white focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />

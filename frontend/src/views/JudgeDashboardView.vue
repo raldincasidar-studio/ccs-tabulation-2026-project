@@ -132,6 +132,11 @@
       </div>
 
     </main>
+    <ExitConfirmationModal
+      :is-open="isExitConfirmationOpen"
+      @cancel="isExitConfirmationOpen = false"
+      @confirm="confirmGoBack"
+    />
   </div>
 </template>
 
@@ -141,6 +146,7 @@ import { useRouter } from 'vue-router'
 import { ChevronLeft } from 'lucide-vue-next'
 import { logout, getCurrentUser } from '@/services/authService.js'
 import { judgeService } from '@/services/judgeService.js'
+import ExitConfirmationModal from '@/components/ExitConfirmationModal.vue'
 
 // Image Asset Imports
 import starBg from '@/assets/img/star-bg.png'
@@ -148,6 +154,7 @@ import starCategoryBg from '@/assets/img/star-bg-category.png'
 import mrMsLogo from '@/assets/img/mr-ms-css-logo.png'
 
 const router = useRouter()
+const isExitConfirmationOpen = ref(false)
 const isLiveMode = ref(true)
 const isLoading = ref(true)
 const judgeName = ref('JUDGE')
@@ -279,7 +286,12 @@ const selectCategory = (category) => {
   })
 }
 
-const handleGoBack = async () => {
+const handleGoBack = () => {
+  isExitConfirmationOpen.value = true
+}
+
+const confirmGoBack = async () => {
+  isExitConfirmationOpen.value = false
   await logout()
   router.push('/login')
 }

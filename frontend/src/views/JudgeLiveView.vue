@@ -48,6 +48,10 @@ const thirdContestant = computed(() => {
   return allContestants.value[thirdIdx]
 })
 
+function isScoreMissing(score) {
+  return score === '' || score === null || score === undefined
+}
+
 // ── Live Sheet Polling ────────────────────────────────────────────────
 async function fetchLiveStatus() {
   try {
@@ -310,6 +314,7 @@ onUnmounted(() => {
               v-model.number="contestantScores[criteriaList[0].id]"
               @input="onScoreInput(criteriaList[0].id, criteriaList[0].max)"
               @wheel="$event.target.blur()"
+              :style="isScoreMissing(contestantScores[criteriaList[0].id]) ? { borderColor: '#fde047', boxShadow: '0 0 14px rgba(250, 204, 21, 0.8)' } : undefined"
               placeholder="___"
               class="w-8 sm:w-10 text-center font-bold text-xs sm:text-base bg-transparent border-b border-cyan-400 text-white focus:outline-none focus:border-yellow-400 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
@@ -336,6 +341,7 @@ onUnmounted(() => {
               v-model.number="contestantScores[criteriaList[1].id]"
               @input="onScoreInput(criteriaList[1].id, criteriaList[1].max)"
               @wheel="$event.target.blur()"
+              :style="isScoreMissing(contestantScores[criteriaList[1].id]) ? { borderColor: '#fde047', boxShadow: '0 0 14px rgba(250, 204, 21, 0.8)' } : undefined"
               placeholder="___"
               class="w-8 sm:w-10 text-center font-bold text-xs sm:text-base bg-transparent border-b border-cyan-400 text-white focus:outline-none focus:border-yellow-400 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
@@ -362,6 +368,7 @@ onUnmounted(() => {
               v-model.number="contestantScores[criteriaList[2].id]"
               @input="onScoreInput(criteriaList[2].id, criteriaList[2].max)"
               @wheel="$event.target.blur()"
+              :style="isScoreMissing(contestantScores[criteriaList[2].id]) ? { borderColor: '#fde047', boxShadow: '0 0 14px rgba(250, 204, 21, 0.8)' } : undefined"
               placeholder="___"
               class="w-8 sm:w-10 text-center font-bold text-xs sm:text-base bg-transparent border-b border-cyan-400 text-white focus:outline-none focus:border-yellow-400 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
