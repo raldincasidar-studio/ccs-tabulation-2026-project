@@ -266,6 +266,10 @@ function toggleLiveMode() {
   })
 }
 
+function goToJudgeHome() {
+  router.replace({ name: 'judge' })
+}
+
 onMounted(() => {
   fetchLiveStatus()
   pollingTimer = setInterval(fetchLiveStatus, 3000)
@@ -282,6 +286,34 @@ onUnmounted(() => {
     class="min-h-[100dvh] relative w-full overflow-hidden text-white font-sans flex flex-col select-none"
     style="background: linear-gradient(180deg, #01010D 20%, #020333 90%);"
   >
+    <section
+      v-if="isStandby"
+      role="status"
+      aria-label="Official sponsors"
+      class="fixed inset-0 z-[100] overflow-hidden bg-[#01010D]"
+    >
+      <div class="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-4 p-4 sm:p-6">
+        <span class="font-croparo text-sm font-bold tracking-[0.2em] text-white drop-shadow-lg sm:text-lg">
+          STANDBY MODE
+        </span>
+        <button
+          type="button"
+          class="relative z-20 rounded-full border border-white/50 bg-[#050b35]/90 px-4 py-2 text-xs font-semibold tracking-wider text-white shadow-lg backdrop-blur transition hover:bg-[#12306b] sm:px-5 sm:text-sm"
+          @click.stop="goToJudgeHome"
+        >
+          GO BACK
+        </button>
+      </div>
+      <Transition name="sponsor-fade">
+        <img
+          :key="sponsorIndex"
+          :src="sponsorImages[sponsorIndex]"
+          :alt="`Official sponsors ${sponsorIndex + 1}`"
+          class="pointer-events-none absolute inset-0 h-full w-full object-contain"
+        />
+      </Transition>
+    </section>
+
     <!-- Background Star Image Overlay -->
     <div 
       class="absolute inset-0 pointer-events-none bg-no-repeat bg-[center_top] bg-[length:200%_auto] md:bg-[length:115%_auto] opacity-90 z-0"
@@ -301,7 +333,7 @@ onUnmounted(() => {
       </router-link>
 
       <!-- Center: Now Showing Header (Absolute Center on Desktop, Normal flow on mobile) -->
-      <div class="absolute left-2 top-4 sm:top-6 md:top-10 lg:top-12 flex flex-col items-center text-center w-full max-w-[200px] sm:max-w-md pointer-events-none z-0">
+      <div v-if="!isStandby" class="absolute left-2 top-4 sm:top-6 md:top-10 lg:top-12 flex flex-col items-center text-center w-full max-w-[200px] sm:max-w-md pointer-events-none z-0">
         <span class="text-[10px] sm:text-xs md:text-sm text-gray-300 font-medium tracking-[0.25em] flex items-center gap-1.5 mb-1 sm:mb-1.5 mt-10 sm:mt-0">
           <span class="text-[10px] sm:text-xs">✦</span> {{ isStandby ? 'Standby' : 'Now Showing' }}
         </span>
@@ -340,22 +372,6 @@ onUnmounted(() => {
 
     <!-- ── STAGE VIEWPORT ── -->
     <main class="relative z-10 flex-1 w-full h-full flex flex-col items-center justify-end overflow-hidden pb-4 md:pb-0">
-      <section
-        v-if="isStandby"
-        role="status"
-        aria-label="Official sponsors"
-        class="fixed inset-0 z-[100] overflow-hidden bg-[#01010D]"
-      >
-        <Transition name="sponsor-fade">
-          <img
-            :key="sponsorIndex"
-            :src="sponsorImages[sponsorIndex]"
-            :alt="`Official sponsors ${sponsorIndex + 1}`"
-            class="sponsor-slide absolute inset-0 h-full w-full object-contain"
-          />
-        </Transition>
-      </section>
-
       <div
         v-if="!isStandby && !isLoading && !hasActiveLiveSheet"
         role="status"

@@ -1,11 +1,15 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ChevronLeft } from 'lucide-vue-next'
 import { judgeService } from '@/services/judgeService'
+import configService from '@/services/configService'
 import { getCurrentUser } from '@/services/authService'
 import starBg from '@/assets/img/star-bg.png'
 import mrMsLogo from '@/assets/img/mr-ms-css-logo.png'
+import firstSponsors from '@/assets/img/1st-sponsors.jpg'
+import secondSponsors from '@/assets/img/2nd-sponsors.jpg'
+import thirdSponsors from '@/assets/img/3rd-sponsors.jpg'
 
 const router = useRouter()
 const route = useRoute()
@@ -13,8 +17,26 @@ const route = useRoute()
 // ── State ─────────────────────────────────────────────────────────────
 const isLiveMode = ref(true)
 const isLoading = ref(true)
+const isStandby = ref(false)
 const activeFilter = ref('all')
 const savingCandidateId = ref(null)
+let standbyPollingTimer = null
+let sponsorTimer = null
+const sponsorIndex = ref(0)
+const sponsorImages = [firstSponsors, secondSponsors, thirdSponsors]
+
+watch(isStandby, (standby) => {
+  if (sponsorTimer) clearInterval(sponsorTimer)
+  sponsorTimer = null
+
+  if (standby) {
+    sponsorTimer = setInterval(() => {
+      sponsorIndex.value = (sponsorIndex.value + 1) % sponsorImages.length
+    }, 5000)
+  } else if (!isLoading.value) {
+    initializeScoresheet()
+  }
+})
 
 const selectedCategory = ref({ _id: '', name: 'PLAYSUIT' })
 const criteriaList = ref([])
@@ -105,6 +127,11 @@ const toggleLiveMode = () => {
 async function initializeScoresheet() {
   isLoading.value = true
   try {
+    const configRes = await configService.getConfiguration()
+    const configData = configRes?.data?.data || configRes?.data || configRes
+    isStandby.value = configData?.liveStatus?.isStandby === true
+    if (isStandby.value) return
+
     const routeCategoryParam = route.params.categoryId || route.query.categoryId || route.query.category
 
     // Only the category in the live sheet is eligible for scoring.
@@ -222,6 +249,8 @@ async function initializeScoresheet() {
 
 // ── Submit Score (POST /api/v1/scores/submit + Local Cache) ───────────
 async function onScoreInput(candidate, criterionId, max) {
+  if (isStandby.value) return
+
   let val = candidate.scores[criterionId]
 
   if (val === '' || val === null || val === undefined) {
@@ -267,7 +296,7 @@ function handleImageError(e, idx) {
 }
 
 function goBack() {
-  router.push('/judge/dashboard')
+  router.push({ name: 'judge' })
 }
 
 function formatScore(val) {
@@ -280,8 +309,24 @@ function isScoreMissing(val) {
   return val === '' || val === null || val === undefined
 }
 
+async function pollStandbyStatus() {
+  try {
+    const configRes = await configService.getConfiguration()
+    const configData = configRes?.data?.data || configRes?.data || configRes
+    isStandby.value = configData?.liveStatus?.isStandby === true
+  } catch (error) {
+    console.warn('Could not fetch standby status:', error)
+  }
+}
+
 onMounted(() => {
   initializeScoresheet()
+  standbyPollingTimer = setInterval(pollStandbyStatus, 3000)
+})
+
+onUnmounted(() => {
+  if (standbyPollingTimer) clearInterval(standbyPollingTimer)
+  if (sponsorTimer) clearInterval(sponsorTimer)
 })
 </script>
 
@@ -290,6 +335,34 @@ onMounted(() => {
     class="min-h-screen relative w-full text-white font-sans flex flex-col select-none overflow-x-hidden selection:bg-blue-600 selection:text-white"
     style="background: linear-gradient(180deg, #01010D 28%, #020333 93%);"
   >
+    <section
+      v-if="isStandby"
+      role="status"
+      aria-label="Official sponsors"
+      class="fixed inset-0 z-[100] overflow-hidden bg-[#01010D]"
+    >
+      <div class="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-4 p-4 sm:p-6">
+        <span class="font-croparo text-sm font-bold tracking-[0.2em] text-white drop-shadow-lg sm:text-lg">
+          STANDBY MODE
+        </span>
+        <button
+          type="button"
+          class="rounded-full border border-white/50 bg-[#050b35]/75 px-4 py-2 text-xs font-semibold tracking-wider text-white shadow-lg backdrop-blur transition hover:bg-[#12306b] sm:px-5 sm:text-sm"
+          @click="goBack"
+        >
+          GO BACK
+        </button>
+      </div>
+      <Transition name="sponsor-fade">
+        <img
+          :key="sponsorIndex"
+          :src="sponsorImages[sponsorIndex]"
+          :alt="`Official sponsors ${sponsorIndex + 1}`"
+          class="absolute inset-0 h-full w-full object-contain"
+        />
+      </Transition>
+    </section>
+
     <!-- Background Star Image -->
     <div 
       class="fixed inset-0 pointer-events-none bg-no-repeat bg-[center_top] bg-[length:140%_auto] md:bg-[length:115%_auto] opacity-90 z-0"
@@ -483,6 +556,21 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.sponsor-fade-enter-active,
+.sponsor-fade-leave-active {
+  transition: opacity 900ms ease, transform 900ms ease;
+}
+
+.sponsor-fade-enter-from {
+  opacity: 0;
+  transform: scale(1.025);
+}
+
+.sponsor-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.99);
+}
+
 /* 
   Figma Linear Gradient:
   LEFT (0%):    #00FFFB (Cyan / Aqua)
