@@ -2,10 +2,14 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { judgeService } from '@/services/judgeService'
+import configService from '@/services/configService'
 import { getCurrentUser } from '@/services/authService'
 import starBg from '@/assets/img/live-mode-bg.png'
 import mrMsLogo from '@/assets/img/logo.png.png'
 import podiumImg from '@/assets/img/podium.png'
+import firstSponsors from '@/assets/img/1st-sponsors.jpg'
+import secondSponsors from '@/assets/img/2nd-sponsors.jpg'
+import thirdSponsors from '@/assets/img/3rd-sponsors.jpg'
 
 const router = useRouter()
 const route = useRoute()
@@ -13,6 +17,7 @@ const route = useRoute()
 // ── State ─────────────────────────────────────────────────────────────
 const isLiveMode = ref(true)
 const isLoading = ref(true)
+const isStandby = ref(false)
 let pollingTimer = null
 
 const liveCategory = ref({ _id: '', name: 'PLAYSUIT' })
@@ -56,6 +61,17 @@ function isScoreMissing(score) {
 // ── Live Sheet Polling ────────────────────────────────────────────────
 async function fetchLiveStatus() {
   try {
+    const configRes = await configService.getConfiguration()
+    const configData = configRes?.data?.data || configRes?.data || configRes
+    isStandby.value = configData?.liveStatus?.isStandby === true
+
+    if (isStandby.value) {
+      hasActiveLiveSheet.value = false
+      criteriaList.value = []
+      contestantScores.value = {}
+      return
+    }
+
     if (allContestants.value.length === 0) {
       try {
         const contRes = await judgeService.getContestants()
@@ -89,6 +105,7 @@ async function fetchLiveStatus() {
     }
 
     hasActiveLiveSheet.value = true
+    isStandby.value = false
 
     liveCategory.value = {
       _id: activeCategory._id || activeCategory.id,
@@ -166,6 +183,7 @@ async function fetchLiveStatus() {
       contestantScores.value = scoresObj
     }
   } catch (err) {
+    isStandby.value = false
     hasActiveLiveSheet.value = false
     liveCategory.value = { _id: '', name: '' }
     criteriaList.value = []
@@ -270,7 +288,7 @@ onUnmounted(() => {
       <!-- Center: Now Showing Header (Absolute Center on Desktop, Normal flow on mobile) -->
       <div class="absolute left-1/2 -translate-x-1/2 top-4 sm:top-6 md:top-10 lg:top-12 flex flex-col items-center text-center w-full max-w-[200px] sm:max-w-md pointer-events-none z-0">
         <span class="text-[10px] sm:text-xs md:text-sm text-gray-300 font-medium tracking-[0.25em] flex items-center gap-1.5 mb-1 sm:mb-1.5 mt-10 sm:mt-0">
-          <span class="text-[10px] sm:text-xs">✦</span> Now Showing
+          <span class="text-[10px] sm:text-xs">✦</span> {{ isStandby ? 'Standby' : 'Now Showing' }}
         </span>
         <h1 
           class="font-croparo text-xl sm:text-3xl md:text-5xl lg:text-6xl tracking-widest uppercase text-transparent bg-clip-text"
@@ -280,12 +298,12 @@ onUnmounted(() => {
             filter: drop-shadow(0 0 8px rgba(125, 31, 89, 0.6)) drop-shadow(0 0 15px rgba(0, 255, 251, 0.5));
           "
         >
-          {{ liveCategory.name }}
+          {{ isStandby ? 'STANDBY MODE' : liveCategory.name }}
         </h1>
       </div>
 
       <!-- Top Right: Live Mode Capsule Switch -->
-      <div class="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 sm:gap-3 pt-1 z-10">
+      <div v-if="!isStandby" class="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 sm:gap-3 pt-1 z-10">
         <button 
           @click="toggleLiveMode" 
           type="button"
@@ -307,8 +325,23 @@ onUnmounted(() => {
 
     <!-- ── STAGE VIEWPORT ── -->
     <main class="relative z-10 flex-1 w-full h-full flex flex-col items-center justify-end overflow-hidden pb-4 md:pb-0">
+      <section
+        v-if="isStandby"
+        role="status"
+        class="absolute inset-0 z-50 flex flex-col items-center justify-center gap-8 px-5 py-10 text-center"
+      >
+        <h2 class="font-croparo text-2xl sm:text-4xl md:text-5xl font-bold tracking-[0.2em] text-cyan-200 drop-shadow-[0_0_18px_rgba(0,255,251,0.65)]">
+          STANDBY MODE
+        </h2>
+        <div class="grid w-full max-w-6xl grid-cols-1 items-center justify-items-center gap-6 sm:grid-cols-3 sm:gap-8">
+          <img :src="firstSponsors" alt="Official sponsors" class="max-h-40 w-full max-w-sm object-contain" />
+          <img :src="secondSponsors" alt="Official sponsors" class="max-h-40 w-full max-w-sm object-contain" />
+          <img :src="thirdSponsors" alt="Official sponsors" class="max-h-40 w-full max-w-sm object-contain" />
+        </div>
+      </section>
+
       <div
-        v-if="!isLoading && !hasActiveLiveSheet"
+        v-if="!isStandby && !isLoading && !hasActiveLiveSheet"
         role="status"
         class="absolute inset-0 z-50 flex items-center justify-center px-5"
       >

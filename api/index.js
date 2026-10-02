@@ -18,6 +18,7 @@ export const db = {
       totalContestants: 8
     },
     liveStatus: {
+      isStandby: false,
       categoryActive: {
         _id: "65f8a123b0a9c12345678910",
         name: "Playsuit"
@@ -415,42 +416,68 @@ app.put('/api/v1-mock/configuration', authenticateToken, (req, res) => {
 });
 
 app.patch('/api/v1-mock/configuration/live-status', authenticateToken, (req, res) => {
-  const { categoryActive, contestantActive } = req.body;
+  const { categoryActive, contestantActive, isStandby } = req.body;
 
-  const category = db.categories.find(c => c._id === categoryActive);
-  const contestant = db.contestants.find(c => c._id === contestantActive);
-
-  if (!category || !contestant) {
-    return res.status(404).json({
+  if (isStandby !== undefined && typeof isStandby !== 'boolean') {
+    return res.status(400).json({
       success: false,
       error: {
-        code: "RESOURCE_NOT_FOUND",
-        message: "Specified active category or contestant does not exist",
-        details: !category ? [{ field: "categoryActive", issue: "Category ID not found" }] : [{ field: "contestantActive", issue: "Contestant ID not found" }]
+        code: "VALIDATION_ERROR",
+        message: "isStandby must be a boolean",
+        details: [{ field: "isStandby", issue: "Must be a boolean" }]
       }
     });
   }
 
-  const group = db.contestantGroups.find(g => g._id === contestant.group);
+  const hasLiveStatusUpdate = categoryActive !== undefined || contestantActive !== undefined;
+  if (!hasLiveStatusUpdate && isStandby === undefined) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Live status or standby mode is required",
+        details: []
+      }
+    });
+  }
 
-  db.configuration.liveStatus = {
-    categoryActive: {
-      _id: category._id,
-      name: category.name
-    },
-    contestantActive: {
-      _id: contestant._id,
-      name: contestant.name,
-      image: contestant.image,
-      label: contestant.label,
-      group: group ? group.name : ''
+  if (hasLiveStatusUpdate) {
+    const category = db.categories.find(c => c._id === categoryActive);
+    const contestant = db.contestants.find(c => c._id === contestantActive);
+    if (!category || !contestant) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: "RESOURCE_NOT_FOUND",
+          message: "Specified active category or contestant does not exist",
+          details: !category ? [{ field: "categoryActive", issue: "Category ID not found" }] : [{ field: "contestantActive", issue: "Contestant ID not found" }]
+        }
+      });
     }
-  };
+
+    const group = db.contestantGroups.find(g => g._id === contestant.group);
+    db.configuration.liveStatus = {
+      categoryActive: {
+        _id: category._id,
+        name: category.name
+      },
+      contestantActive: {
+        _id: contestant._id,
+        name: contestant.name,
+        image: contestant.image,
+        label: contestant.label,
+        group: group ? group.name : ''
+      },
+      isStandby: false
+    };
+  }
+
+  if (isStandby !== undefined) db.configuration.liveStatus.isStandby = isStandby;
 
   return res.status(200).json({
     success: true,
     message: "Live status updated successfully",
-    data: { categoryActive, contestantActive }
+    data: { ...db.configuration.liveStatus }
   });
 });
 

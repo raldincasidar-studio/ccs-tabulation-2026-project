@@ -27,7 +27,11 @@ router.get('/configuration', authenticateToken, async (req, res) => {
     const totalContestants = await Contestant.countDocuments();
 
     // Populate live status references
-    let liveStatusData = { categoryActive: null, contestantActive: null };
+    let liveStatusData = {
+      categoryActive: null,
+      contestantActive: null,
+      isStandby: config.liveStatus?.isStandby === true,
+    };
 
     if (config.liveStatus?.categoryActive) {
       const cat = await Category.findById(config.liveStatus.categoryActive).select('_id name');
@@ -107,40 +111,65 @@ router.put('/configuration', authenticateToken, async (req, res) => {
 // ─── 2.3 PATCH /configuration/live-status ───
 router.patch('/configuration/live-status', authenticateToken, async (req, res) => {
   try {
-    const { categoryActive, contestantActive } = req.body || {};
+    const { categoryActive, contestantActive, isStandby } = req.body || {};
 
-    if (!categoryActive || !contestantActive) {
+    // if (isStandby !== undefined && typeof isStandby !== 'boolean') {
+    //   return sendError(res, 400, 'VALIDATION_ERROR', 'isStandby must be a boolean', [
+    //     { field: 'isStandby', issue: 'Must be a boolean' },
+    //   ]);
+    // }
+
+    const hasLiveStatusUpdate = categoryActive !== undefined || contestantActive !== undefined;
+    if (!hasLiveStatusUpdate && isStandby === undefined) {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Live status or standby mode is required', []);
+    }
+
+    if (hasLiveStatusUpdate && (!categoryActive || !contestantActive)) {
       return sendError(res, 400, 'VALIDATION_ERROR', 'categoryActive and contestantActive are required', []);
     }
 
-    const categoryExists = await Category.findById(categoryActive);
-    if (!categoryExists) {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Specified active category or contestant does not exist', [
-        { field: 'categoryActive', issue: 'Category ID not found' },
-      ]);
-    }
+    if (hasLiveStatusUpdate) {
+      const categoryExists = await Category.findById(categoryActive);
+      if (!categoryExists) {
+        return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Specified active category or contestant does not exist', [
+          { field: 'categoryActive', issue: 'Category ID not found' },
+        ]);
+      }
 
-    const contestantExists = await Contestant.findById(contestantActive);
-    if (!contestantExists) {
-      return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Specified active category or contestant does not exist', [
-        { field: 'contestantActive', issue: 'Contestant ID not found' },
-      ]);
+      const contestantExists = await Contestant.findById(contestantActive);
+      if (!contestantExists) {
+        return sendError(res, 404, 'RESOURCE_NOT_FOUND', 'Specified active category or contestant does not exist', [
+          { field: 'contestantActive', issue: 'Contestant ID not found' },
+        ]);
+      }
     }
 
     let config = await Configuration.findOne();
     if (!config) {
       config = await Configuration.create({
         eventTitle: '2026 Mr & Ms CCS',
-        liveStatus: { categoryActive, contestantActive },
+        liveStatus: {
+          ...(hasLiveStatusUpdate ? { categoryActive, contestantActive } : {}),
+          ...(isStandby !== undefined ? { isStandby } : {}),
+        },
       });
     } else {
-      config.liveStatus = { categoryActive, contestantActive };
+      if (hasLiveStatusUpdate) {
+        config.liveStatus.categoryActive = categoryActive;
+        config.liveStatus.contestantActive = contestantActive;
+        config.liveStatus.isStandby = false;
+      }
+      if (isStandby !== undefined) config.liveStatus.isStandby = isStandby;
       await config.save();
     }
 
     return sendSuccess(
       res,
-      { categoryActive, contestantActive },
+      {
+        categoryActive: config.liveStatus.categoryActive,
+        contestantActive: config.liveStatus.contestantActive,
+        isStandby: config.liveStatus.isStandby,
+      },
       'Live status updated successfully',
       200,
     );

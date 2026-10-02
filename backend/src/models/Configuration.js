@@ -27,6 +27,10 @@ const configurationSchema = new mongoose.Schema(
         ref: "Contestant",
         default: null,
       },
+      isStandby: {
+        type: Boolean,
+        default: false,
+      },
     },
   },
   { timestamps: true },

@@ -12,7 +12,7 @@ export const configService = {
   },
 
   updateLiveStatus: async (payload) => {
-    // payload: { categoryActive: string, contestantActive: string }
+    // payload: { categoryActive: string, contestantActive: string } | { isStandby: boolean }
     return await api.patch('/configuration/live-status', payload);
   },
 

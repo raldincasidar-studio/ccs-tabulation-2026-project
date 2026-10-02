@@ -23,6 +23,7 @@ const contestants = ref([]);
 
 const selectedCategory = ref('');
 const selectedContestant = ref('');
+const isStandby = ref(false);
 
 const loading = ref(true);
 const saving = ref(false);
@@ -61,6 +62,7 @@ onMounted(async () => {
 
     // Set initial selections from current live status
     const liveStatus = configData?.liveStatus;
+    isStandby.value = liveStatus?.isStandby === true;
     if (liveStatus?.categoryActive?._id) {
       selectedCategory.value = liveStatus.categoryActive._id;
       
@@ -110,12 +112,32 @@ const handleSave = async () => {
       categoryActive: selectedCategory.value,
       contestantActive: selectedContestant.value
     });
-    
+    isStandby.value = false;
     message.value = { type: 'success', text: 'Live status updated successfully!' };
     setTimeout(() => { message.value = null; }, 4000);
   } catch (error) {
     console.error("Failed to update live status:", error);
     message.value = { type: 'error', text: 'Failed to update live status. Please try again.' };
+  } finally {
+    saving.value = false;
+  }
+};
+
+const handleStandbyToggle = async () => {
+  saving.value = true;
+  message.value = null;
+
+  try {
+    await configService.updateLiveStatus({ isStandby: !isStandby.value });
+    isStandby.value = !isStandby.value;
+    message.value = {
+      type: 'success',
+      text: isStandby.value ? 'Standby mode enabled.' : 'Live mode resumed.'
+    };
+    setTimeout(() => { message.value = null; }, 4000);
+  } catch (error) {
+    console.error("Failed to update standby mode:", error);
+    message.value = { type: 'error', text: 'Failed to update standby mode. Please try again.' };
   } finally {
     saving.value = false;
   }
@@ -233,6 +255,13 @@ const handleSave = async () => {
                 class="save-button"
               >
                 {{ saving ? 'SAVING...' : 'SAVE' }}
+              </button>
+              <button
+                @click="handleStandbyToggle"
+                :disabled="saving"
+                class="standby-button"
+              >
+                {{ saving ? 'SAVING...' : (isStandby ? 'RESUME LIVE' : 'ENABLE STANDBY') }}
               </button>
             </div>
           </div>
@@ -490,6 +519,29 @@ const handleSave = async () => {
   cursor: not-allowed;
 }
 
+.standby-button {
+  background-color: #b45309;
+  color: white;
+  font-weight: bold;
+  font-size: 0.95rem;
+  letter-spacing: 0.08em;
+  padding: 12px 28px;
+  border-radius: 99px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s, opacity 0.2s;
+  text-transform: uppercase;
+}
+
+.standby-button:hover:not(:disabled) {
+  background-color: #92400e;
+}
+
+.standby-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* Responsive adjustments */
 @media (max-width: 767px) {
   .mobile-hamburger {
@@ -514,6 +566,11 @@ const handleSave = async () => {
     flex-direction: column-reverse;
     align-items: stretch;
     gap: 1rem;
+  }
+
+  .save-button,
+  .standby-button {
+    width: 100%;
   }
 
   .message-wrapper {
