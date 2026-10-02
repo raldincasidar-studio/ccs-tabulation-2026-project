@@ -16,6 +16,10 @@ const contestantSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    cloudinaryPublicId: {
+      type: String,
+      default: "",
+    },
     group: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "ContestantGroup",

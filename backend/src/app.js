@@ -14,6 +14,7 @@ import contestantRouter from './routes/contestantRoutes.js';
 import scoreRouter from './routes/scoreRoutes.js';
 import reportRouter from './routes/reportRoutes.js';
 import dashboardRouter from './routes/dashboardRoutes.js';
+import uploadRouter from './routes/uploadRoutes.js';
 
 const app = express();
 
@@ -65,6 +66,8 @@ app.use('/api/v1', reportRouter);
 app.use('/api/v1-mock', reportRouter);
 app.use('/api/v1', dashboardRouter);
 app.use('/api/v1-mock', dashboardRouter);
+app.use('/api/v1', uploadRouter);
+app.use('/api/v1-mock', uploadRouter);
 app.use('/api', userRouter);
 
 // Root Endpoint

@@ -32,7 +32,4 @@ const configurationSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export const Configuration = mongoose.model(
-  "Configuration",
-  configurationSchema,
-);
+export const Configuration = mongoose.model("Configuration", configurationSchema);
